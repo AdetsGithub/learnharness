@@ -35,8 +35,8 @@ function asset(id: number, name: string, overrides: Partial<ReleaseAsset> = {}):
 }
 
 /** The complete, healthy 11-asset draft for a version. */
-function healthyRelease(version: string, tagForm: "v" | "bare" = "v"): ReleaseRecord {
-	const e = expectedAssets(version);
+function healthyRelease(version: string, tagForm: "v" | "bare" = "v", productName = "LearnHarness"): ReleaseRecord {
+	const e = expectedAssets(version, productName);
 	return {
 		id: 42,
 		tag_name: tagForm === "v" ? `v${version}` : version,
@@ -49,7 +49,7 @@ function healthyRelease(version: string, tagForm: "v" | "bare" = "v"): ReleaseRe
 function healthyFeeds(version: string, release: ReleaseRecord): Record<string, string> {
 	const byName = new Map(release.assets.map((entry) => [entry.name, entry]));
 	const feeds: Record<string, string> = {};
-	for (const expectation of feedExpectations(expectedAssets(version))) {
+	for (const expectation of feedExpectations(expectedAssets(version, release.assets.some(a => a.name.startsWith("LearnHarness-Papers-")) ? "LearnHarness-Papers" : "LearnHarness"))) {
 		const files = expectation.urls.map((url) => {
 			const found = byName.get(url);
 			assert.ok(found, `fixture needs ${url}`);
@@ -376,7 +376,7 @@ describe("release gate — CLI (offline, repo config)", () => {
 
 	function workspace(tagForm: "v" | "bare" = "v", version = VERSION) {
 		const root = fs.mkdtempSync(path.join(os.tmpdir(), "lh-release-gate-"));
-		const release = healthyRelease(version, tagForm);
+		const release = healthyRelease(version, tagForm, "LearnHarness-Papers");
 		fs.writeFileSync(path.join(root, "releases.json"), JSON.stringify([release]));
 		fs.mkdirSync(path.join(root, "metadata"));
 		for (const [name, content] of Object.entries(healthyFeeds(version, release))) {
@@ -397,7 +397,7 @@ describe("release gate — CLI (offline, repo config)", () => {
 			assert.equal(report.releaseId, release.id);
 			assert.equal(report.matchedTagName, TAG);
 			assert.deepEqual(report.warnings, []);
-			assert.deepEqual(report.assets.map((entry) => entry.name), expectedAssets(VERSION).files);
+			assert.deepEqual(report.assets.map((entry) => entry.name), expectedAssets(VERSION, "LearnHarness-Papers").files);
 		} finally {
 			fs.rmSync(root, { recursive: true, force: true });
 		}
@@ -419,7 +419,7 @@ describe("release gate — CLI (offline, repo config)", () => {
 		const { root } = workspace();
 		try {
 			const release = healthyRelease(VERSION);
-			release.assets = release.assets.filter((entry) => entry.name !== `LearnHarness-${VERSION}-arm64.dmg.blockmap`);
+			release.assets = release.assets.filter((entry) => entry.name !== `LearnHarness-Papers-${VERSION}-arm64.dmg.blockmap`);
 			release.assets.push(asset(9999, "LearnHarness-0.1.0-x64-setup.exe"));
 			fs.writeFileSync(path.join(root, "releases.json"), JSON.stringify([release]));
 			const result = run(["verify", path.join(root, "releases.json"), path.join(root, "metadata"), "--tag", TAG]);

@@ -117,19 +117,19 @@ export function checkVersion(version: unknown): { ok: true; version: string } | 
 }
 
 /** The exact asset set the installed builder emits for this repo's config. */
-export function expectedAssets(version: string): ExpectedAssets {
+export function expectedAssets(version: string, productName = PRODUCT_NAME): ExpectedAssets {
 	const mac = {
-		dmg: `${PRODUCT_NAME}-${version}-arm64.dmg`,
-		zip: `${PRODUCT_NAME}-${version}-arm64-mac.zip`,
+		dmg: `${productName}-${version}-arm64.dmg`,
+		zip: `${productName}-${version}-arm64-mac.zip`,
 		feed: "latest-mac.yml",
 	};
 	const win = {
-		exe: `${PRODUCT_NAME}-${version}-x64-setup.exe`,
+		exe: `${productName}-${version}-x64-setup.exe`,
 		feed: "latest.yml",
 	};
 	const linux = {
-		appImage: `${PRODUCT_NAME}-${version}-x86_64.AppImage`,
-		deb: `${PRODUCT_NAME}-${version}-amd64.deb`,
+		appImage: `${productName}-${version}-x86_64.AppImage`,
+		deb: `${productName}-${version}-amd64.deb`,
 		feed: "latest-linux.yml",
 	};
 	// Sidecar differential-update blockmaps: emitted for dmg, mac zip and
@@ -259,11 +259,13 @@ export function verifyConfigAssumptions(config: unknown, pkg: unknown): { ok: tr
 	const errors: Issues = [];
 	const bad = (message: string) => errors.push(message);
 	if (!isPlainObject(pkg) || typeof pkg.version !== "string") bad("package.json has no string version");
-	if (!isPlainObject(pkg) || pkg.name !== "learnharness") bad("package.json name is no longer \"learnharness\"");
+	const papers = isPlainObject(pkg) && pkg.name === "learnharness-papers";
+	if (!isPlainObject(pkg) || (pkg.name !== "learnharness" && !papers)) bad(`package.json name is no longer "learnharness" or "learnharness-papers"`);
 	if (!isPlainObject(config)) {
 		return { ok: false, errors: ["electron-builder.yml did not parse to a mapping", ...errors] };
 	}
-	if (config.productName !== PRODUCT_NAME) bad(`productName is ${JSON.stringify(config.productName)}, expected "${PRODUCT_NAME}"`);
+	const expectedProduct = papers ? "LearnHarness Papers" : PRODUCT_NAME;
+	if (config.productName !== expectedProduct) bad(`productName is ${JSON.stringify(config.productName)}, expected "${expectedProduct}"`);
 	if (config.artifactName != null) bad("a top-level artifactName now overrides target defaults — expected names no longer hold");
 	const sameTargets = (actual: unknown, expected: Array<Record<string, unknown>>) =>
 		JSON.stringify(actual) === JSON.stringify(expected);
@@ -285,7 +287,7 @@ export function verifyConfigAssumptions(config: unknown, pkg: unknown): { ok: tr
 	}
 	if (!isPlainObject(config.linux)) bad("linux section missing");
 	else {
-		if (config.linux.artifactName !== "${productName}-${version}-${arch}.${ext}") {
+		if (config.linux.artifactName !== (papers ? "LearnHarness-Papers-${version}-${arch}.${ext}" : "${productName}-${version}-${arch}.${ext}")) {
 			bad(`linux.artifactName changed (${JSON.stringify(config.linux.artifactName)}) — expected names no longer hold`);
 		}
 		if (!sameTargets(config.linux.target, [{ target: "AppImage", arch: ["x64"] }, { target: "deb", arch: ["x64"] }])) {
@@ -560,7 +562,7 @@ function startGate(argv: string[]):
 function main(argv: string[]): number {
 	const start = startGate(argv);
 	if (!start.ok) return fail(start.errors);
-	const expected = expectedAssets(start.version);
+	const expected = expectedAssets(start.version, isPlainObject(start.pkg) && start.pkg.name === "learnharness-papers" ? "LearnHarness-Papers" : PRODUCT_NAME);
 
 	if (argv[0] === "select") {
 		const selection = selectDraft(start.releases, start.tag, start.version);
