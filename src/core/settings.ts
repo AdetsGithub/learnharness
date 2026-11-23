@@ -28,6 +28,7 @@
  * (fully concrete) view lives in settings-resolution.ts.
  */
 
+import { sanitizeTeachingPreferences } from "./paper-teaching.ts";
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import type { CacheRetention } from "@earendil-works/pi-ai";
 import { AUTH_PROVIDER_KEYS } from "./auth-keys.ts";
@@ -349,6 +350,7 @@ export interface DictationSettings {
 
 /** Agent settings — everything about the non-conversation machinery. */
 export interface AgentSettings {
+	teaching?: import("./paper-teaching.ts").TeachingPreferences;
 	/** Maximum simultaneous background-worker model requests (default 8).
 	 *  Direct conversations bypass this limit. Positive safe integers only:
 	 *  no arbitrary ceiling, rounding, or clamping. */
@@ -569,7 +571,7 @@ export interface FactorySettings {
 export const FACTORY_SETTINGS: FactorySettings = {
 	version: CURRENT_SETTINGS_VERSION,
 	agent: { workerRequestConcurrency: 8 },
-	general: { autoUpdate: true },
+	general: { autoUpdate: false },
 	dictation: { language: "en" },
 	appearance: {
 		theme: "default",
@@ -757,6 +759,7 @@ function sanitizeBooleanMap(raw: unknown): Record<string, boolean> | undefined {
 
 function sanitizeAgent(raw: Record<string, unknown>): AgentSettings {
 	const out: AgentSettings = {};
+	if (raw.teaching !== undefined) out.teaching = sanitizeTeachingPreferences(raw.teaching);
 	// Invalid disk values drop: absence resolves to 8, never a silent clamp.
 	if (typeof raw.workerRequestConcurrency === "number" && Number.isSafeInteger(raw.workerRequestConcurrency) && raw.workerRequestConcurrency > 0) {
 		out.workerRequestConcurrency = raw.workerRequestConcurrency;

@@ -22,6 +22,7 @@
  *   src/store/prompt-overrides.ts (segment list derived from source).
  */
 
+import { resolveTeachingPreferences } from "./paper-teaching.ts";
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import type { ModelRole } from "../../config.ts";
 import type { ChatSettings } from "./contracts/chat.ts";
@@ -75,6 +76,7 @@ export interface EffectiveSettings {
 	general: Required<GeneralSettings>;
 	dictation: Required<DictationSettings>;
 	agent: {
+		teaching: import("./paper-teaching.ts").ResolvedTeachingPreferences;
 		workerRequestConcurrency: number;
 		models: Record<BackgroundModelRole, EffectiveModelSpec | undefined>;
 		/** Delta map as stored — consumers resolve absent key → enabled. */
@@ -202,6 +204,7 @@ export function resolveSettings(record: UserSettings | null): EffectiveSettings 
 			language: record?.dictation?.language ?? FACTORY_SETTINGS.dictation.language,
 		},
 		agent: {
+			teaching: resolveTeachingPreferences(agent.teaching),
 			workerRequestConcurrency: agent.workerRequestConcurrency ?? FACTORY_SETTINGS.agent.workerRequestConcurrency,
 			models,
 			tools: agent.tools ?? {},

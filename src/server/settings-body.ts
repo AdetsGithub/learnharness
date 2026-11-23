@@ -12,6 +12,7 @@
  */
 
 import path from "node:path";
+import { parseTeachingPreferences } from "../core/paper-teaching.ts";
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import { isHexColor, type ChatSettings } from "../core";
 import { COLOR_OVERRIDE_KEYS, isThemeId, type AppearanceColorOverrides, type ColorOverrideKey } from "../core/themes.ts";
@@ -46,8 +47,14 @@ export function parseSettingsBody(body: unknown): SettingsBodyResult<ChatSetting
 	const raw = body as {
 		model?: { provider?: unknown; id?: unknown };
 		thinkingLevel?: unknown;
+		teaching?: unknown;
 	};
 	const settings: ChatSettings = {};
+	if (raw.teaching !== undefined) {
+		const parsed = parseTeachingPreferences(raw.teaching);
+		if (!parsed.ok) return parsed;
+		settings.teaching = parsed.settings;
+	}
 	if (raw.model !== undefined) {
 		if (
 			typeof raw.model !== "object" ||
@@ -155,6 +162,11 @@ export function parseAgentSettingsBody(body: unknown): SettingsBodyResult<AgentS
 	const raw = asRecord(body);
 	if (!raw) return { ok: false, error: "Invalid JSON body" };
 	const settings: AgentSettings = {};
+	if (raw.teaching !== undefined) {
+		const parsed = parseTeachingPreferences(raw.teaching);
+		if (!parsed.ok) return parsed;
+		settings.teaching = parsed.settings;
+	}
 	if (raw.workerRequestConcurrency !== undefined) {
 		if (typeof raw.workerRequestConcurrency !== "number" || !Number.isSafeInteger(raw.workerRequestConcurrency) || raw.workerRequestConcurrency <= 0) {
 			return { ok: false, error: "workerRequestConcurrency must be a positive, safely representable whole number" };

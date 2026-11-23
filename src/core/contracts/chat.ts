@@ -62,6 +62,8 @@ export const CURRENT_CHAT_VERSION = 2;
  * when composing a turn, not midway through an active request. Background
  * worker roles use their own model resolution. */
 export interface ChatSettings {
+	/** A snapshot of the lesson policy, independent of later global changes. */
+	teaching?: import("../paper-teaching.ts").TeachingPreferences;
 	/** Explicit provider-qualified model coordinates from the host catalog. */
 	model?: { provider: string; id: string };
 	/** pi thinking level — must be in the chosen model's supported list
