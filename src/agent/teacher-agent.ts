@@ -244,7 +244,7 @@ ${assessmentInstruction(opts.teachingHistory?.() ?? [])}` : "";
 			const tool = original.name === "read" && original.execute === readTool.execute
 				? { ...original, execute: createReadTool(engine.model).execute as AgentTool<any>["execute"] } : original;
 			if (paperTeacher && tool.name === "ask_user_question") return { ...tool, execute: async (id: string, input: Record<string, unknown>, signal?: AbortSignal, update?: Parameters<AgentTool<any>["execute"]>[3]) => {
-                if (/\b(approv\w*|accept\w*|confirm\w*|ready|shall (?:we|i)|proceed|begin|start)\b/i.test(JSON.stringify(input))) return invalidInputResult(tool.name, ["Paper teaching is already requested. Do not ask for plan acceptance or readiness. Give a one-to-three sentence route and begin the overview now. Use this tool only for a substantive unresolved preference."]);
+                if (/\b(?:approv\w*|accept\w*|confirm\w*)\b.{0,80}\b(?:plan|route|outline|approach)\b|\bready\b.{0,50}\b(?:begin|start|proceed)\b|\bshall (?:we|i)\b.{0,40}\b(?:begin|start|proceed)\b|\b(?:plan|outline)\b.{0,40}\b(?:okay|ok|acceptable|look good)\b/i.test(String(input.question ?? ""))) return invalidInputResult(tool.name, ["Paper teaching is already requested. Do not ask for plan acceptance or readiness. Give a one-to-three sentence route and begin the overview now. Use this tool only for a substantive unresolved preference."]);
                 return tool.execute(id, input, signal, update);
             } } as AgentTool<any>;
             if (!opts.teachingPreferences || preferences.style !== "paper" || opts.tools || !["quiz", "explain", "probe", "recall"].includes(tool.name)) return tool;
@@ -363,7 +363,7 @@ ${assessmentInstruction(opts.teachingHistory?.() ?? [])}` : "";
 				opts.requestCycle?.rejectLocalRequest();
 				throw error;
 			}
-            if (openingRecoveries) return { context: { ...request.context, messages: [...request.context.messages, { role: "system", content: "Opening recovery: planning prose alone does not teach the paper. Begin actual explanation now, call lesson_progress, and give a substantive overview in this response. Do not ask for approval or repeat the plan." }] } };
+            if (openingRecoveries) return { context: { ...request.context, messages: [...request.context.messages, { role: "system", timestamp: Date.now(), content: "Opening recovery: planning prose alone does not teach the paper. Begin actual explanation now, call lesson_progress, and give a substantive overview in this response. Do not ask for approval or repeat the plan." }] } };
 		},
 	});
 	questionLedger?.bind(agent);

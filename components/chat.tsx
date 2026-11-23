@@ -1936,7 +1936,7 @@ export function Chat({
 														const anchor = sourceId && sourceTextParts.get(sourceId) === part.id ? messageAnchorId(sourceId) : undefined;
 														return (
 															<div key={part.id || pi} id={anchor} data-source-message-id={sourceId ?? undefined} className="lh-source-passage">
-																<MessageResponse>{kind !== "practice" ? normalizePaperNotation(part.text) : part.text}</MessageResponse>
+																<MessageResponse>{kind !== "practice" ? normalizePaperNotation(part.text ?? "") : part.text}</MessageResponse>
 															</div>
 														);
 													}
