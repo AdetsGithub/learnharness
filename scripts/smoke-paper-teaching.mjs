@@ -55,7 +55,9 @@ try {
 	await page.setRequestInterception(true);
 	let continuation;
 	page.on("request", req => { if (new URL(req.url()).pathname === "/api/chat" && req.method() === "POST") { continuation = JSON.parse(req.postData()); void req.respond({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "Synthetic offline smoke: generation disabled" }) }); } else void req.continue(); });
+	const firstSettings = page.waitForResponse(r => new URL(r.url()).pathname === route && r.status() === 200);
 	await page.goto(`${origin}/chat/${created.id}`, { waitUntil: "domcontentloaded" });
+	await firstSettings;
 	await page.waitForSelector('[data-testid="continue-reading"]');
 	await page.waitForSelector('[data-testid="assessment-review"]');
 	assert.match(await page.$eval('[data-testid="assessment-review"]', e => e.textContent), /invalidated/);
@@ -65,7 +67,9 @@ try {
 	await page.select('select[aria-label="Lesson checks"]', "4");
 	await page.waitForFunction(() => !document.querySelector('[data-testid="teaching-controls"]').disabled);
 	await page.waitForFunction(async route => (await fetch(route).then(r => r.json())).teaching.checkpoints === 4, {}, route);
+	const reloadedSettings = page.waitForResponse(r => new URL(r.url()).pathname === route && r.status() === 200);
 	await page.reload({ waitUntil: "domcontentloaded" });
+	await reloadedSettings;
 	await page.click('[data-testid="paper-lesson-bar"] button');
 	await page.waitForSelector('select[aria-label="Lesson checks"]');
 	assert.equal(await page.$eval('select[aria-label="Lesson checks"]', e => e.value), "4");
