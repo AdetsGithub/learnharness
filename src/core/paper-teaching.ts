@@ -104,6 +104,8 @@ export function paperQuestionProblems(input: {
 		if (args.prerequisiteOnly !== true) return ["Calibration must test prerequisites only; set prerequisiteOnly after checking this is not an untaught paper-specific fact."];
 	} else {
         if (!/\b(check my understanding|quiz me|test my understanding|ask (?:me )?(?:a |one )?(?:question|check)|give me (?:a |one )?(?:quiz|question|check))\b/i.test(latestLearnerText(messages, input.questionId))) return ["Checks are opt-in. Explain directly and offer Check my understanding alongside Continue reading; do not pose a question or request plan approval."];
+        const lastRequest = messages.findLastIndex(m => m.role === "user");
+        if (messages.slice(lastRequest + 1).some(m => m.role === "toolResult" && ["quiz", "explain"].includes(m.toolName) && !m.isError && typeof (m.details as { correct?: unknown })?.correct === "boolean")) return ["The requested check has already been answered. Explain the feedback, then wait for another explicit check request; Continue remains ungraded."];
 		const grounding = args.grounding as { taughtExcerpt?: unknown; source?: unknown; answerKeyChecked?: unknown } | undefined;
 		if (typeof grounding?.taughtExcerpt !== "string" || grounding.taughtExcerpt.trim().length < 20 || typeof grounding.source !== "string" || !grounding.source.trim() || grounding.answerKeyChecked !== true) return ["Supply grounding: an exact taughtExcerpt (20+ characters), a source citation, and answerKeyChecked:true. Explain first."];
 		const presented: string[] = [];

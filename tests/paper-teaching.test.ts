@@ -49,6 +49,7 @@ describe("paper lesson policy", () => {
  it("requires a learner opt-in, and keeps completion separate from assessment", () => {
   assert.match(paperQuestionProblems({ name: "quiz", args: question, messages: [prose()], preferences: PAPER_TEACHING_DEFAULTS }).join(), /opt-in/);
   assert.match(paperQuestionProblems({ name: "quiz", args: question, messages: [optIn(), prose(), { role: "user", content: "Continue reading", timestamp: 4 } as never], preferences: PAPER_TEACHING_DEFAULTS }).join(), /opt-in/);
+  assert.match(paperQuestionProblems({ name: "quiz", args: { ...question, nodeId: "another" }, messages: [optIn(), prose(), call("quiz", question), result("quiz", { correct: false })], preferences: PAPER_TEACHING_DEFAULTS }).join(), /already been answered/);
   const progress = result("lesson_progress", { ok: true, complete: true });
   assert.deepEqual(paperLessonStatus([progress, prose()]), { overviewComplete: true, explained: true, assessed: 0 });
   assert.equal(paperLessonStatus([progress, result("quiz", { correct: true })]).assessed, 1);
@@ -63,15 +64,15 @@ describe("paper lesson policy", () => {
 		const probes = [0, 1].flatMap(i => [call("probe", { prerequisiteOnly: true }, `p${i}`), result("probe", { correct: false }, `p${i}`)]);
 		assert.match(paperQuestionProblems({ name: "probe", args: { prerequisiteOnly: true }, messages: probes, preferences: PAPER_TEACHING_DEFAULTS }).join(), /Calibration budget/);
 		const attempted = [optIn(), prose(), call("quiz", question, "q1"), result("quiz", { correct: false }, "q1")];
-		assert.deepEqual(paperQuestionProblems({ name: "quiz", args: question, messages: attempted, preferences: PAPER_TEACHING_DEFAULTS }), []);
+		assert.deepEqual(paperQuestionProblems({ name: "quiz", args: question, messages: [...attempted, optIn()], preferences: PAPER_TEACHING_DEFAULTS }), []);
 		attempted.push(call("quiz", question, "q2"), result("quiz", { correct: false }, "q2"));
-		assert.match(paperQuestionProblems({ name: "quiz", args: question, messages: attempted, preferences: PAPER_TEACHING_DEFAULTS }).join(), /retry limit/);
-		assert.match(paperQuestionProblems({ name: "quiz", args: question, messages: [optIn(), prose(), call("quiz", question), result("quiz", { correct: true })], preferences: PAPER_TEACHING_DEFAULTS }).join(), /successful check/);
+		assert.match(paperQuestionProblems({ name: "quiz", args: question, messages: [...attempted, optIn()], preferences: PAPER_TEACHING_DEFAULTS }).join(), /retry limit/);
+		assert.match(paperQuestionProblems({ name: "quiz", args: question, messages: [optIn(), prose(), call("quiz", question), result("quiz", { correct: true }), optIn()], preferences: PAPER_TEACHING_DEFAULTS }).join(), /successful check/);
 	});
 	it("does not count a teacher-invalidated item as a failed learning attempt", () => {
 		const history = [optIn(), prose(), call("quiz", question), result("quiz", { correct: false }), result("assessment_review", { questionId: "quiz", state: "invalidated", reason: "Ambiguous wording" })];
 		assert.equal(assessmentReviews(history).get("quiz")?.state, "invalidated");
-		assert.deepEqual(paperQuestionProblems({ name: "quiz", args: question, messages: history, preferences: { ...PAPER_TEACHING_DEFAULTS, checkpoints: 1, repairRetries: 0 } }), []);
+		assert.deepEqual(paperQuestionProblems({ name: "quiz", args: question, messages: [...history, optIn()], preferences: { ...PAPER_TEACHING_DEFAULTS, checkpoints: 1, repairRetries: 0 } }), []);
 	});
 	it("advances phase and map through exposition, with no graded answer", () => {
 		const history = [call("probe_done", {}), result("probe_done", { ok: true }), call("lesson_progress", { nodeId: "overview", summary: "Motivation" }), result("lesson_progress", { ok: true, nodeId: "overview", summary: "Motivation" }), prose("Two tests may cover identical code but establish different driver values."), call("lesson_progress", { nodeId: "extrema", summary: "Extrema" }), result("lesson_progress", { ok: true, nodeId: "extrema", summary: "Extrema" }), prose()];
