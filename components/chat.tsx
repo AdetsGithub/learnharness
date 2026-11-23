@@ -31,6 +31,7 @@ import { Shimmer } from "@/components/ai-elements/shimmer";
 import { BrailleSpinner } from "@/components/braille-spinner";
 import { ToolPartRenderer } from "@/components/plugin-renderers";
 import { Separator } from "@/components/ui/separator";
+import { PAPER_ACTIONS, paperLessonStatus } from "@/src/core/paper-teaching";
 import { SessionTeachingBar } from "./teaching-controls";
 import { assessmentReviews } from "@/src/core";
 import { AnsweredCard } from "@/components/answered-card";
@@ -1759,7 +1760,7 @@ export function Chat({
 					)}
 					<PluginSessionTopBarActions readContext={actionContext} captureContext={captureActionContext} refreshRef={refreshPluginActions} />
 				</TopBar>
-				{kind !== "practice" && <SessionTeachingBar chatId={chatId} busy={busy || compacting} canContinue={!pending && !pendingPlugin && !unreadablePlugin && nativeMessages.some(m => m.role === "assistant")} onContinue={() => { void prepareText("Continue the lesson with the next substantial explanation. Do not open with another quiz."); }} />}
+				{kind !== "practice" && <SessionTeachingBar chatId={chatId} busy={busy || compacting} canContinue={!pending && !pendingPlugin && !unreadablePlugin && nativeMessages.some(m => m.role === "assistant")} status={paperLessonStatus(nativeMessages)} onAction={action => { void prepareText(PAPER_ACTIONS[action]); }} onContinue={() => { void prepareText(PAPER_ACTIONS.continue); }} />}
 
 				<SessionFind scopeRef={sessionFindScopeRef} scrollContextRef={scrollContextRef} />
 				<div ref={sessionFindScopeRef} className="relative flex min-h-0 flex-1">
@@ -1771,7 +1772,7 @@ export function Chat({
 							{messages.length === 0 && !busy && (
 								<ConversationEmptyState
 									title="New session"
-									description="The teacher will open by probing what you already know."
+									description="The teacher will explain the paper with worked examples. Understanding checks are optional."
 								/>
 							)}
 

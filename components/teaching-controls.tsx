@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { resolveTeachingPreferences, type TeachingPreferences } from "@/src/core";
+import { resolveTeachingPreferences, type TeachingPreferences, type paperLessonStatus } from "@/src/core";
 import { Button } from "./ui/button";
 
 export function TeachingControls({ value, disabled, onChange }: { value?: TeachingPreferences; disabled?: boolean; onChange: (value: TeachingPreferences) => void }) {
@@ -19,7 +19,7 @@ export function TeachingControls({ value, disabled, onChange }: { value?: Teachi
 	</fieldset>;
 }
 
-export function SessionTeachingBar({ chatId, busy, canContinue, onContinue }: { chatId: string; busy: boolean; canContinue: boolean; onContinue: () => void }) {
+export function SessionTeachingBar({ chatId, busy, canContinue, onContinue, onAction, status }: { chatId: string; busy: boolean; canContinue: boolean; onContinue: () => void; onAction: (action: "check" | "depth" | "case") => void; status: ReturnType<typeof paperLessonStatus> }) {
 	const [value, setValue] = useState<TeachingPreferences>();
 	const [open, setOpen] = useState(false);
 	const [saving, setSaving] = useState(false);
@@ -40,7 +40,15 @@ export function SessionTeachingBar({ chatId, busy, canContinue, onContinue }: { 
 		<div className="flex flex-wrap items-center gap-3 text-xs">
 			<span>{resolveTeachingPreferences(value).style === "paper" ? "Paper · explanation first" : "Guided discovery"}</span>
 			<Button size="xs" variant="ghost" onClick={() => setOpen(v => !v)} aria-expanded={open}>Lesson settings</Button>
-			{canContinue && <Button size="xs" variant="outline" onClick={onContinue} disabled={busy} data-testid="continue-reading">Continue reading</Button>}
+			{canContinue && !status.overviewComplete && <Button size="xs" variant="outline" onClick={onContinue} disabled={busy} data-testid="continue-reading">Continue reading</Button>}
+            {canContinue && resolveTeachingPreferences(value).style === "paper" && <>
+                {status.overviewComplete && <>
+                    <Button size="xs" variant="outline" disabled={busy} onClick={() => onAction("depth")}>Explain the difficult details</Button>
+                    <Button size="xs" variant="outline" disabled={busy} onClick={() => onAction("case")}>Work through a case study</Button>
+                </>}
+                {resolveTeachingPreferences(value).checkpoints > 0 && <Button size="xs" variant="outline" disabled={busy} onClick={() => onAction("check")}>Check my understanding</Button>}
+                <span className="text-muted-foreground" role="status">{status.overviewComplete ? "Overview explained" : status.explained ? "Material explained" : "Lesson in progress"} · {status.assessed ? `${status.assessed} understanding check${status.assessed === 1 ? "" : "s"} assessed` : "Understanding not yet assessed"}</span>
+            </>}
 		</div>
 		{open && <div className="py-3"><TeachingControls value={value} disabled={busy || saving || !value} onChange={next => { void save(next); }} /><p className="mt-2 text-xs text-muted-foreground">Applies to this lesson. Counts are limits, not quotas. Use Practice from the home page for exercises.</p></div>}
 		{error && <p role="alert" className="text-sm text-destructive">{error}</p>}

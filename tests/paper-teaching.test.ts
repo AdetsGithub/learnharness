@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { after, describe, it } from "node:test";
 import { createFauxCore, fauxAssistantMessage, fauxText, fauxToolCall } from "@earendil-works/pi-ai";
-import { PAPER_TEACHING_DEFAULTS, paperQuestionProblems, resolveTeachingPreferences, parseTeachingPreferences, assessmentReviews } from "../src/core/paper-teaching.ts";
+import { PAPER_TEACHING_DEFAULTS, paperQuestionProblems, resolveTeachingPreferences, parseTeachingPreferences, assessmentReviews, paperLessonStatus } from "../src/core/paper-teaching.ts";
 import { sessionMarkdown } from "../src/core/session-markdown.ts";
 import { phaseAt3Lh, phaseAt3 } from "../src/core/phases.ts";
 import { derivePlanStatusesLh, derivePlanStatuses } from "../src/core/contracts/plan.ts";
@@ -14,6 +14,7 @@ const excerpt = "Extremum feedback records a new observed minimum or maximum, ev
 function prose(text = excerpt): LhMessage { return { role: "assistant", id: "teaching", content: [{ type: "text", text }], timestamp: 1 } as never; }
 function call(name: string, args: unknown, id = name): LhMessage { return { role: "assistant", id: `msg-${id}`, content: [{ type: "toolCall", name, arguments: args, id }], timestamp: 2 } as never; }
 function result(name: string, details: unknown, id = name): LhMessage { return { role: "toolResult", id: `result-${id}`, toolName: name, toolCallId: id, details, content: [{ type: "text", text: JSON.stringify(details) }], timestamp: 3, isError: false } as never; }
+function optIn(): LhMessage { return { role: "user", content: "Check my understanding", timestamp: 0 } as never; }
 const question = { question: "A new value 11 remains in a familiar range; the old maximum was 10. Which signal is new?", nodeId: "extrema", type: "check", options: [{ label: "Extremum", value: "e" }, { label: "No signal", value: "n" }], correctAnswer: "e", explanation: "11 exceeds 10.", grounding: { taughtExcerpt: excerpt, source: "StateFuzz §3.4.1", answerKeyChecked: true } };
 const tree = { nodes: [{ id: "overview", title: "Overview" }, { id: "extrema", title: "Extrema" }], edges: [{ from: "overview", to: "extrema" }], version: 1 };
 const created: string[] = [];
@@ -33,27 +34,35 @@ describe("paper lesson policy", () => {
 		assert.match(composeInstructions("teacher", {}, { style: "guided" }), /every step, with `quiz`/);
 	});
 	it("rejects an untaught question and admits an application after the explanation", () => {
-		assert.match(paperQuestionProblems({ name: "quiz", args: question, messages: [], preferences: PAPER_TEACHING_DEFAULTS }).join(), /absent/);
-		assert.deepEqual(paperQuestionProblems({ name: "quiz", args: question, messages: [prose()], preferences: PAPER_TEACHING_DEFAULTS }), []);
-		assert.match(paperQuestionProblems({ name: "quiz", questionId: "cold", args: question, messages: [call("quiz", question, "cold"), prose()], preferences: PAPER_TEACHING_DEFAULTS }).join(), /absent/);
-		assert.match(paperQuestionProblems({ name: "quiz", args: { ...question, grounding: undefined }, messages: [prose()], preferences: PAPER_TEACHING_DEFAULTS }).join(), /grounding/);
+		assert.match(paperQuestionProblems({ name: "quiz", args: question, messages: [optIn()], preferences: PAPER_TEACHING_DEFAULTS }).join(), /absent/);
+		assert.deepEqual(paperQuestionProblems({ name: "quiz", args: question, messages: [optIn(), prose()], preferences: PAPER_TEACHING_DEFAULTS }), []);
+		assert.match(paperQuestionProblems({ name: "quiz", questionId: "cold", args: question, messages: [optIn(), call("quiz", question, "cold"), prose()], preferences: PAPER_TEACHING_DEFAULTS }).join(), /absent/);
+		assert.match(paperQuestionProblems({ name: "quiz", args: { ...question, grounding: undefined }, messages: [optIn(), prose()], preferences: PAPER_TEACHING_DEFAULTS }).join(), /grounding/);
 	});
+ it("requires a learner opt-in, and keeps completion separate from assessment", () => {
+  assert.match(paperQuestionProblems({ name: "quiz", args: question, messages: [prose()], preferences: PAPER_TEACHING_DEFAULTS }).join(), /opt-in/);
+  assert.match(paperQuestionProblems({ name: "quiz", args: question, messages: [optIn(), prose(), { role: "user", content: "Continue reading", timestamp: 4 } as never], preferences: PAPER_TEACHING_DEFAULTS }).join(), /opt-in/);
+  const progress = result("lesson_progress", { ok: true, complete: true });
+  assert.deepEqual(paperLessonStatus([progress, prose()]), { overviewComplete: true, explained: true, assessed: 0 });
+  assert.equal(paperLessonStatus([progress, result("quiz", { correct: true })]).assessed, 1);
+  assert.equal(paperLessonStatus([progress, result("quiz", { correct: false }), result("assessment_review", { questionId: "quiz", state: "invalidated", reason: "Bad key" })]).assessed, 0);
+ });
 	it("enforces no-check mode and disables graded predictions", () => {
-		assert.match(paperQuestionProblems({ name: "quiz", args: question, messages: [prose()], preferences: { ...PAPER_TEACHING_DEFAULTS, checkpoints: 0 } }).join(), /budget/);
-		assert.match(paperQuestionProblems({ name: "quiz", args: { ...question, type: "predict" }, messages: [prose()], preferences: PAPER_TEACHING_DEFAULTS }).join(), /Predictions/);
+		assert.match(paperQuestionProblems({ name: "quiz", args: question, messages: [optIn(), prose()], preferences: { ...PAPER_TEACHING_DEFAULTS, checkpoints: 0 } }).join(), /budget/);
+		assert.match(paperQuestionProblems({ name: "quiz", args: { ...question, type: "predict" }, messages: [optIn(), prose()], preferences: PAPER_TEACHING_DEFAULTS }).join(), /Predictions/);
 		assert.match(paperQuestionProblems({ name: "probe", args: { prerequisiteOnly: false }, messages: [], preferences: PAPER_TEACHING_DEFAULTS }).join(), /prerequisites/);
 	});
 	it("caps calibration and repair loops and moves on after successful reasoning", () => {
 		const probes = [0, 1].flatMap(i => [call("probe", { prerequisiteOnly: true }, `p${i}`), result("probe", { correct: false }, `p${i}`)]);
 		assert.match(paperQuestionProblems({ name: "probe", args: { prerequisiteOnly: true }, messages: probes, preferences: PAPER_TEACHING_DEFAULTS }).join(), /Calibration budget/);
-		const attempted = [prose(), call("quiz", question, "q1"), result("quiz", { correct: false }, "q1")];
+		const attempted = [optIn(), prose(), call("quiz", question, "q1"), result("quiz", { correct: false }, "q1")];
 		assert.deepEqual(paperQuestionProblems({ name: "quiz", args: question, messages: attempted, preferences: PAPER_TEACHING_DEFAULTS }), []);
 		attempted.push(call("quiz", question, "q2"), result("quiz", { correct: false }, "q2"));
 		assert.match(paperQuestionProblems({ name: "quiz", args: question, messages: attempted, preferences: PAPER_TEACHING_DEFAULTS }).join(), /retry limit/);
-		assert.match(paperQuestionProblems({ name: "quiz", args: question, messages: [prose(), call("quiz", question), result("quiz", { correct: true })], preferences: PAPER_TEACHING_DEFAULTS }).join(), /successful check/);
+		assert.match(paperQuestionProblems({ name: "quiz", args: question, messages: [optIn(), prose(), call("quiz", question), result("quiz", { correct: true })], preferences: PAPER_TEACHING_DEFAULTS }).join(), /successful check/);
 	});
 	it("does not count a teacher-invalidated item as a failed learning attempt", () => {
-		const history = [prose(), call("quiz", question), result("quiz", { correct: false }), result("assessment_review", { questionId: "quiz", state: "invalidated", reason: "Ambiguous wording" })];
+		const history = [optIn(), prose(), call("quiz", question), result("quiz", { correct: false }), result("assessment_review", { questionId: "quiz", state: "invalidated", reason: "Ambiguous wording" })];
 		assert.equal(assessmentReviews(history).get("quiz")?.state, "invalidated");
 		assert.deepEqual(paperQuestionProblems({ name: "quiz", args: question, messages: history, preferences: { ...PAPER_TEACHING_DEFAULTS, checkpoints: 1, repairRetries: 0 } }), []);
 	});
@@ -80,7 +89,7 @@ describe("paper lesson policy", () => {
 			fauxAssistantMessage([fauxToolCall("quiz", question, { id: "warm" })], { stopReason: "toolUse" }),
 		]);
 		const teacher = createTeacherAgent({ chatId: chat.id, chatStore, jobStore: {} as never, spawn: () => {}, searchAvailable: () => false }, { engine: { model: faux.getModel(), streamFn: faux.streamSimple }, teachingPreferences: PAPER_TEACHING_DEFAULTS, teachingHistory: () => [] });
-		await teacher.prompt("Teach me StateFuzz. I have not read it.");
+		await teacher.prompt("Teach me StateFuzz. I have not read it. Then check my understanding.");
 		const messages = teacher.state.messages as LhMessage[];
 		assert.ok(messages.some(m => m.role === "toolResult" && m.toolCallId === "cold" && m.isError));
 		assert.ok(messages.some(m => m.role === "toolResult" && m.toolName === "lesson_progress" && !m.isError));

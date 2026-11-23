@@ -55,6 +55,34 @@ export function assessmentInstruction(messages: readonly LhMessage[]): string {
 	return reviews.length ? `Assessment evidence overrides (latest reviews; never infer misunderstanding from invalidated, untaught or skipped items):\n${JSON.stringify(reviews)}` : "";
 }
 
+/** Durable learner actions use the ordinary chat input path, including export/replay. */
+export const PAPER_ACTIONS = {
+ continue: "Continue the lesson with the next substantial explanation. Do not open with another quiz. If the overview is complete, explain a difficult mechanism in greater depth using a fresh worked trace; do not repeat the overview or merely announce completion.",
+ check: "Check my understanding of the material you have already explained. Ask one optional application question, with all necessary premises supplied. After feedback, let me choose whether to continue reading or request another check.",
+ depth: "Explain the difficult details of this paper. Choose an essential mechanism not yet worked through in depth. Carry one concrete example through its intermediate representations and decisions, citing the paper and marking illustrative values. Do not repeat an earlier trace.",
+ case: "Work through a case study from this paper, preferably a real bug or failure. Explain the initial conditions, each causal step, the observed outcome, and why the proposed method helps. Distinguish the paper's evidence from invented illustrations. If no case study is reported, say so and use a clearly labelled hypothetical example.",
+} as const;
+export function paperLessonStatus(messages: readonly LhMessage[]) {
+ const reviews = assessmentReviews(messages);
+ let overviewComplete = false, explained = false, assessed = 0;
+ for (const m of messages) {
+  if (m.role !== "toolResult" || m.isError) continue;
+  if (m.toolName === "lesson_progress" && (m.details as { ok?: boolean })?.ok) {
+   explained = true;
+   if ((m.details as { complete?: boolean }).complete) overviewComplete = true;
+  }
+  if (["quiz", "explain"].includes(m.toolName) && typeof (m.details as { correct?: unknown })?.correct === "boolean" && !["invalidated", "untaught", "skipped", "unassessed"].includes(reviews.get(m.toolCallId)?.state ?? (m.details as { assessmentState?: string }).assessmentState ?? "")) assessed++;
+ }
+ return { overviewComplete, explained, assessed };
+}
+function latestLearnerText(messages: readonly LhMessage[], questionId?: string): string {
+ let text = "";
+ for (const m of messages) {
+  if (m.role === "assistant" && m.content.some(b => b.type === "toolCall" && b.id === questionId)) break;
+  if (m.role === "user") text = typeof m.content === "string" ? m.content : m.content.filter(b => b.type === "text").map(b => b.type === "text" ? b.text : "").join("\n");
+ }
+ return text;
+}
 /** Deterministic admission guard; grounding matches presented prose, not hidden keys. */
 export function paperQuestionProblems(input: {
 	name: string; questionId?: string; args: Record<string, unknown>; messages: readonly LhMessage[];
@@ -75,6 +103,7 @@ export function paperQuestionProblems(input: {
 	if (probe) {
 		if (args.prerequisiteOnly !== true) return ["Calibration must test prerequisites only; set prerequisiteOnly after checking this is not an untaught paper-specific fact."];
 	} else {
+        if (!/\b(check my understanding|quiz me|test my understanding|ask (?:me )?(?:a |one )?(?:question|check)|give me (?:a |one )?(?:quiz|question|check))\b/i.test(latestLearnerText(messages, input.questionId))) return ["Checks are opt-in. Explain directly and offer Check my understanding alongside Continue reading; do not pose a question or request plan approval."];
 		const grounding = args.grounding as { taughtExcerpt?: unknown; source?: unknown; answerKeyChecked?: unknown } | undefined;
 		if (typeof grounding?.taughtExcerpt !== "string" || grounding.taughtExcerpt.trim().length < 20 || typeof grounding.source !== "string" || !grounding.source.trim() || grounding.answerKeyChecked !== true) return ["Supply grounding: an exact taughtExcerpt (20+ characters), a source citation, and answerKeyChecked:true. Explain first."];
 		const presented: string[] = [];
