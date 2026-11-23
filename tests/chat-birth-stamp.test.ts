@@ -55,6 +55,7 @@ describe("POST /api/chats — the birth stamp", () => {
 		const record = chatStore.getChat(id);
 		assert.ok(record);
 		assert.deepEqual(record.settings, {
+			teaching: { style: "paper", calibration: 2, checkpoints: 6, predictions: false, repairRetries: 1 },
 			model: { provider: "openrouter", id: "z-ai/glm-5.3-flash" },
 			thinkingLevel: "low",
 		});
@@ -68,7 +69,8 @@ describe("POST /api/chats — the birth stamp", () => {
 		const { id } = (await res.json()) as { id: string };
 		const record = chatStore.getChat(id);
 		assert.ok(record);
-		assert.equal(record.settings, undefined, "nothing stamped — nothing to lie about");
+		assert.equal(record.settings?.model, undefined, "No model stamp without a configured slot");
+		assert.equal(record.settings?.teaching?.style, "paper");
 	});
 
 	it("an unset thinking level rides as-is — the session's level resolves (strong's, then the model's ladder)", async () => {
@@ -81,7 +83,7 @@ describe("POST /api/chats — the birth stamp", () => {
 		const record = chatStore.getChat(id);
 		assert.ok(record);
 		assert.equal(record.settings?.thinkingLevel, undefined);
-		assert.deepEqual(record.settings, { model: { provider: "openrouter", id: "z-ai/glm-5.3-flash" } });
+		assert.deepEqual(record.settings?.model, { provider: "openrouter", id: "z-ai/glm-5.3-flash" });
 	});
 
 	it("changing the strong slot afterward NEVER touches existing sessions — the stamp is a copy, not a live view", async () => {

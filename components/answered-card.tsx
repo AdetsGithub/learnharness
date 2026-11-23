@@ -9,7 +9,7 @@ import { ThinkingBlock } from "@/components/thinking-block";
 import { PathText } from "@/components/file-path-chip";
 import { cn } from "@/lib/utils";
 import { ToolContentResponse } from "@/components/ai-elements/message";
-import type { QuestionAnswerData } from "@/src/core";
+import type { AssessmentReview, QuestionAnswerData } from "@/src/core";
 import { answeredOptionLetters, answerForPresentation, parseAskInput, parseQuizInput } from "@/src/core";
 import { useAppearance } from "@/components/settings/appearance";
 import { questionCardLabel, questionCardStandIn } from "@/components/question-dock";
@@ -40,7 +40,7 @@ function scrollParent(el: HTMLElement): HTMLElement | null {
  * client — the card reveals his answer, the committed correct answer, and
  * the explanation, with NO verdict chips (owner ruling 2026-09-27).
  */
-export function AnsweredCard({ answer: savedAnswer, input, toolCallId }: { answer: QuestionAnswerData; input?: unknown; toolCallId?: string }) {
+export function AnsweredCard({ answer: savedAnswer, input, toolCallId, review }: { answer: QuestionAnswerData; input?: unknown; toolCallId?: string; review?: AssessmentReview }) {
 	const answer = answerForPresentation(savedAnswer, input);
 	const optionLetters = answeredOptionLetters(savedAnswer, input);
 	const [whyOpen, setWhyOpen] = useState(false); // the tucked explanation (predictions, owner 2026-10-03)
@@ -123,10 +123,13 @@ export function AnsweredCard({ answer: savedAnswer, input, toolCallId }: { answe
 		? { gridTemplateColumns: `minmax(0, 1fr) calc(${columns.answer}px - ${ANSWER_COLUMN_INSET_CSS})`, columnGap: COLUMN_GAP_CSS }
 		: undefined;
 
+	if (review && ["invalidated", "untaught", "unassessed", "skipped"].includes(review.state)) {
+		return <div className="my-3 rounded-xl border border-border bg-card p-4 text-sm" data-testid="assessment-review"><p>{answer.questionText}</p><p className="mt-2 font-medium">Assessment: {review.state}</p><p>{review.reason}</p><p className="mt-2 text-muted-foreground">Original response preserved in the export; this item is not evidence of misunderstanding.</p></div>;
+	}
 	if (answer.dismissed) {
 		return (
 			<div className="rounded-xl border bg-card p-4 text-sm text-muted-foreground">
-				<span className="font-medium">{answer.questionText}</span> — skipped
+				<span className="font-medium">{answer.questionText}</span> — {answer.assessmentState === "untaught" ? "not taught yet" : "skipped"}
 			</div>
 		);
 	}

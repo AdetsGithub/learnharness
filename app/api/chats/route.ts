@@ -1,3 +1,4 @@
+import { resolveTeachingPreferences } from "@/src/core";
 import { chainsForSelection, formatChainLine } from "@/src/core";
 import { newGraphContextMessage, type GraphContextPick } from "@/src/core";
 import { compactionInFlight, createChat, isTurnRunning, listChats, readSettingsRecord, stores, titleFromPrompt } from "@/src/server";
@@ -33,9 +34,13 @@ export async function POST(req: Request) {
 	// (PUT /api/chats/:id/settings). No strong slot configured (fresh BYOK
 	// boot) → no stamp; the turn gate's 503 models_not_configured envelope
 	// refuses honestly until the setup flow fills the slot.
-	const strong = readSettingsRecord()?.models?.strong;
+	const defaults = readSettingsRecord();
+	const teaching = resolveTeachingPreferences(defaults?.agent?.teaching);
+	const strong = defaults?.models?.strong;
+	stores.chatStore.saveSettings(chat.id, { teaching });
 	if (strong?.model) {
 		stores.chatStore.saveSettings(chat.id, {
+			teaching,
 			model: { provider: strong.model.provider, id: strong.model.id },
 			thinkingLevel: strong.thinkingLevel,
 		});

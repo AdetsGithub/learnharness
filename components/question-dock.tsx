@@ -993,6 +993,7 @@ function QuestionDockForm({
 					</button>
 				)}
 
+				{(kind === "quiz" || kind === "explain") && <button type="button" className="rounded border border-dashed border-border px-3 py-2 text-sm text-muted-foreground" disabled={preparing} onClick={() => onSubmit({ kind, questionText: qd.question, dontKnow: false, answers: [], dismissed: true, assessmentState: "untaught", answeredAt: new Date().toISOString() })}>Not taught yet · explain this first</button>}
 				{kind === "ask" && (
 					<div
 						role={qd.mode === "multi-select" ? "checkbox" : "radio"}

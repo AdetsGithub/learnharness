@@ -59,6 +59,7 @@ import { refreshRemoteModelCatalog, useModelCatalog } from "@/components/model-c
 import type { ModelCatalogRefreshOutcome } from "@/src/core";
 import { Hint } from "@/components/ui/hint";
 import { Button } from "@/components/ui/button";
+import { TeachingControls } from "../teaching-controls";
 import { PromptSegmentDialog, type PromptDeleteOutcome, type PromptSaveOutcome } from "./prompt-segment-dialog";
 import { PromptSegmentRow, promptSegmentName } from "./prompt-segment-row";
 import type React from "react";
@@ -966,6 +967,10 @@ export function AgentSection({
 				</SettingsRow>
 			</SettingsGroup>
 
+			<SettingsGroup label="Paper teaching" testid="group-paper-teaching">
+				<p className="mb-3 text-sm text-muted-foreground">Defaults for new lessons. Existing lessons retain their own settings. Practice remains available separately.</p>
+				<TeachingControls value={agent?.teaching} onChange={teaching => { void onSectionChange({ ...agent, teaching }); }} />
+			</SettingsGroup>
 			<SettingsGroup label="System prompts" testid="group-prompts">
 				<p className="text-xs text-muted-foreground">Use the switch to choose between the default and your saved override.</p>
 				{promptListStatus !== "ready" && <div className="flex items-center gap-2">

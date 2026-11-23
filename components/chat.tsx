@@ -31,6 +31,8 @@ import { Shimmer } from "@/components/ai-elements/shimmer";
 import { BrailleSpinner } from "@/components/braille-spinner";
 import { ToolPartRenderer } from "@/components/plugin-renderers";
 import { Separator } from "@/components/ui/separator";
+import { SessionTeachingBar } from "./teaching-controls";
+import { assessmentReviews } from "@/src/core";
 import { AnsweredCard } from "@/components/answered-card";
 import { MalformedQuestion } from "@/components/malformed-question";
 import { SubagentSteerCard } from "@/components/artifacts/steer-card";
@@ -312,6 +314,7 @@ export function Chat({
 	const { canonicalMessages, reconciliation, reconcile, pluginQuestionAvailability, pluginQuestionDraft, pluginProblemAvailability, pluginProblemDraft, dismissPluginQuestion, readRecord, readStats, messages, nativeMessages, hasConfirmedConversation, contextTokens, send, continueIfOwed, steer, steerQueue, submitAnswer, dismissQuestion, dismissProblem, questionDraft, saveQuestionDraft, status, evaluating, error, stop, clearError, resumeStream, setReattachSettled } =
 		useChatSession({ chatId, initialMessages, initialError, initiallyInFlight });
 
+	const reviews = assessmentReviews(nativeMessages);
 	const controller = useOptionalInteractionLayers();
 	const sessionFindScopeRef = useRef<HTMLDivElement | null>(null);
 	const pathname = usePathname();
@@ -1756,6 +1759,7 @@ export function Chat({
 					)}
 					<PluginSessionTopBarActions readContext={actionContext} captureContext={captureActionContext} refreshRef={refreshPluginActions} />
 				</TopBar>
+				{kind !== "practice" && <SessionTeachingBar chatId={chatId} busy={busy || compacting} canContinue={!pending && !pendingPlugin && !unreadablePlugin && nativeMessages.some(m => m.role === "assistant")} onContinue={() => { void prepareText("Continue the lesson with the next substantial explanation. Do not open with another quiz."); }} />}
 
 				<SessionFind scopeRef={sessionFindScopeRef} scrollContextRef={scrollContextRef} />
 				<div ref={sessionFindScopeRef} className="relative flex min-h-0 flex-1">
@@ -1923,6 +1927,9 @@ export function Chat({
 													);
 												}
 												switch (part.type) {
+													case "tool-lesson_progress":
+													case "tool-assessment_review":
+														return null; // Navigation and corrections are represented by the map/cards.
 													case "text": {
 														const sourceId = textPartMessageId(part.id);
 														const anchor = sourceId && sourceTextParts.get(sourceId) === part.id ? messageAnchorId(sourceId) : undefined;
@@ -1970,7 +1977,7 @@ export function Chat({
 														// transcript; answered ones render as graded records.
 														if (part.state === "output-available") {
 															return (
-																<AnsweredCard key={pi} answer={part.output as QuestionAnswerData} input={part.input} toolCallId={part.toolCallId} />
+																<AnsweredCard key={pi} answer={part.output as QuestionAnswerData} input={part.input} toolCallId={part.toolCallId} review={part.toolCallId ? reviews.get(part.toolCallId) : undefined} />
 															);
 														}
 														return null;
