@@ -341,7 +341,7 @@ ${assessmentInstruction(opts.teachingHistory?.() ?? [])}` : "";
 			return messages.length ? { messages } : undefined;
 		} } : {}),
 		prepareRequest: (request) => {
-            if (openingRecoveries) request.context.systemPrompt += "\nOpening recovery: planning prose alone does not teach the paper. Begin actual explanation now, call lesson_progress, and give a substantive overview in this response. Do not ask for approval or repeat the plan.";
+
 			if (opts.callPurpose) {
 				let learner = false, automatic = false;
 				const messages = request.context.messages;
@@ -363,6 +363,7 @@ ${assessmentInstruction(opts.teachingHistory?.() ?? [])}` : "";
 				opts.requestCycle?.rejectLocalRequest();
 				throw error;
 			}
+            if (openingRecoveries) return { context: { ...request.context, messages: [...request.context.messages, { role: "system", content: "Opening recovery: planning prose alone does not teach the paper. Begin actual explanation now, call lesson_progress, and give a substantive overview in this response. Do not ask for approval or repeat the plan." }] } };
 		},
 	});
 	questionLedger?.bind(agent);
