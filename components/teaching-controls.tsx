@@ -46,7 +46,7 @@ export function SessionTeachingBar({ chatId, busy, canContinue, onContinue, onAc
                     <Button size="xs" variant="outline" disabled={busy} onClick={() => onAction("depth")}>Explain the difficult details</Button>
                     <Button size="xs" variant="outline" disabled={busy} onClick={() => onAction("case")}>Work through a case study</Button>
                 </>}
-                {resolveTeachingPreferences(value).checkpoints > 0 && <Button size="xs" variant="outline" disabled={busy} onClick={() => onAction("check")}>Check my understanding</Button>}
+                {status.explained && resolveTeachingPreferences(value).checkpoints > 0 && <Button size="xs" variant="outline" disabled={busy} onClick={() => onAction("check")}>Check my understanding</Button>}
                 <span className="text-muted-foreground" role="status">{status.overviewComplete ? "Overview explained" : status.explained ? "Material explained" : "Lesson in progress"} · {status.assessed ? `${status.assessed} understanding check${status.assessed === 1 ? "" : "s"} assessed` : "Understanding not yet assessed"}</span>
             </>}
 		</div>
