@@ -316,7 +316,10 @@ ${assessmentInstruction(opts.teachingHistory?.() ?? [])}` : "";
             if (turn.toolResults.some(result => questionLedger?.isAcknowledgment(result) || (kind === "practice" && isPluginProblemPoseAcknowledgment(result))) || stopper(turn)) return { action: "end" };
             // Recover a plan-only opening in the same run, without inventing learner approval.
             // A bounded continuation avoids an endless loop if a provider ignores policy.
-            if (paperTeacher && !openedBeforeRun && openingRecoveries < 2 && !turn.message.content.some(b => b.type === "toolCall") && !turn.context.messages.some(m => m.role === "toolResult" && m.toolName === "lesson_progress" && !m.isError)) {
+            if (paperTeacher && !openedBeforeRun && openingRecoveries < 2 && (
+                turn.newMessages.some(m => m.role === "assistant" && m.content.some(b => b.type === "toolCall" && b.name === "plan_init")) ||
+                turn.message.content.some(b => b.type === "text" && /\b(?:plan|outline|shall we begin|ready to (?:begin|start))\b/i.test(b.text))
+            ) && !turn.message.content.some(b => b.type === "toolCall") && !turn.context.messages.some(m => m.role === "toolResult" && m.toolName === "lesson_progress" && !m.isError)) {
                 openingRecoveries++;
                 openingRecoveryPending = true;
                 return { action: "continue" };
