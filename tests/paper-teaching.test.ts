@@ -80,6 +80,19 @@ describe("paper lesson policy", () => {
 		for (const expected of ["Selected answer:", "No signal", "I thought ranges", "What is stored?", "50%", "invalidated", "Understand the mechanism", "Question type:"]) assert.ok(text.includes(expected), expected);
 		assert.doesNotMatch(text, /\[object Object\]|The learner answered incorrectly/);
 	});
+ it("continues a plan-only opening into real teaching without learner approval", async () => {
+  const chat = chatStore.createChat("Opening recovery"); created.push(chat.id); chatStore.saveTree(chat.id, tree);
+  const faux = createFauxCore({});
+  faux.setResponses([
+   fauxAssistantMessage([fauxText("I will explain the motivation, mechanism and results. Shall we begin?")]),
+   fauxAssistantMessage([fauxToolCall("lesson_progress", { nodeId: "overview", summary: "Overview" }, { id: "opening" }), fauxText(excerpt)], { stopReason: "toolUse" }),
+   fauxAssistantMessage([fauxText("Here is how the feedback changes which input is retained.")]),
+  ]);
+  const teacher = createTeacherAgent({ chatId: chat.id, chatStore, jobStore: {} as never, spawn: () => {}, searchAvailable: () => false }, { engine: { model: faux.getModel(), streamFn: faux.streamSimple }, teachingPreferences: PAPER_TEACHING_DEFAULTS });
+  await teacher.prompt("Teach me this paper");
+  assert.ok(teacher.state.messages.some(m => m.role === "toolResult" && m.toolName === "lesson_progress" && !m.isError));
+  assert.equal(teacher.state.messages.filter(m => m.role === "user").length, 1);
+ });
 	it("runs a scripted explanation-first teacher through production tools and rejects a cold quiz", async () => {
 		const chat = chatStore.createChat("Synthetic StateFuzz lesson"); created.push(chat.id); chatStore.saveTree(chat.id, tree);
 		const faux = createFauxCore({});

@@ -230,9 +230,12 @@ function baseAgentOptions(kind: AgentKind, opts: AgentBuildOptions, tools: Agent
 	const preferences = resolveTeachingPreferences(opts.teachingPreferences);
 	const policy = kind !== "practice" && opts.teachingPreferences && preferences.style === "paper" ? `
 
-Lesson settings: ${JSON.stringify(preferences)}. These settings govern this session. Calibration and checkpoint counts are maximums, not quotas. A zero budget means no graded questions. Begin with overview, then worked pipeline, trade-offs, results and limitations. Use lesson_progress to move the map during exposition; finish the section in prose and allow the learner to Continue reading. On a flawed question, call assessment_review with its tool call ID. Do not infer misunderstanding from untaught, skipped or invalidated items. No repeated plan confirmation.
+Lesson settings: ${JSON.stringify(preferences)}. These settings govern this session. Calibration and checkpoint counts are maximums, not quotas. A zero budget means no graded questions. Begin with overview, then worked pipeline, trade-offs, results and limitations. Use lesson_progress to move the map during exposition; finish the section in prose and allow the learner to Continue reading. On a flawed question, call assessment_review with its tool call ID. Do not infer misunderstanding from untaught, skipped or invalidated items. No repeated plan confirmation. The visible route is at most three sentences; keep the detailed plan in the existing collapsible map. Begin actual teaching in the same run. Native lesson checks require an explicit learner request such as Check my understanding. After one requested check and feedback, stop asking questions until the learner chooses another check. A Continue request never authorizes a quiz. Overview completion does not establish mastery. After completion, a plain Continue starts a deeper worked mechanism with new details instead of repeating a trace or announcing completion again.
 ${assessmentInstruction(opts.teachingHistory?.() ?? [])}` : "";
 	const instructed = composedPrompt + policy;
+ const paperTeacher = kind === "teacher" && !!opts.teachingPreferences && preferences.style === "paper" && !opts.tools;
+ let openingRecoveries = 0;
+ const openedBeforeRun = (opts.teachingHistory?.() ?? opts.messages ?? []).some(m => m.role === "toolResult" && m.toolName === "lesson_progress" && !m.isError);
 	const builtinPrompt = narrationGuard ? `${instructed}\n\n---\n\n${SEND_TO_USER_DELIVERY_RULE}` : instructed;
 	// Bind native read and preserve the kind/model-aware Claude output gate
 	// before resolving additive plugins. Explicit registries remain caller-owned.
@@ -240,7 +243,11 @@ ${assessmentInstruction(opts.teachingHistory?.() ?? [])}` : "";
 		...tools.map((original) => {
 			const tool = original.name === "read" && original.execute === readTool.execute
 				? { ...original, execute: createReadTool(engine.model).execute as AgentTool<any>["execute"] } : original;
-			if (!opts.teachingPreferences || preferences.style !== "paper" || opts.tools || !["quiz", "explain", "probe", "recall"].includes(tool.name)) return tool;
+			if (paperTeacher && tool.name === "ask_user_question") return { ...tool, execute: async (id: string, input: Record<string, unknown>, signal?: AbortSignal, update?: Parameters<AgentTool<any>["execute"]>[3]) => {
+                if (/\b(approv\w*|accept\w*|confirm\w*|ready|shall (?:we|i)|proceed|begin|start)\b/i.test(JSON.stringify(input))) return invalidInputResult(tool.name, ["Paper teaching is already requested. Do not ask for plan acceptance or readiness. Give a one-to-three sentence route and begin the overview now. Use this tool only for a substantive unresolved preference."]);
+                return tool.execute(id, input, signal, update);
+            } } as AgentTool<any>;
+            if (!opts.teachingPreferences || preferences.style !== "paper" || opts.tools || !["quiz", "explain", "probe", "recall"].includes(tool.name)) return tool;
 			const probe = tool.name === "probe" || tool.name === "recall";
 			return { ...tool,
 				parameters: Type.Object({ ...tool.parameters.properties, ...(probe ? { prerequisiteOnly: Type.Boolean() } : {
@@ -304,7 +311,16 @@ ${assessmentInstruction(opts.teachingHistory?.() ?? [])}` : "";
 		// exits BEFORE the steering poll — the parked-marker stranding our
 		// Wave C registerLiveAgent-before-runPiTurn design depends on.
 		// undefined preserves normal scheduling (the old boolean false).
-		finishTurn: (turn) => (turn.toolResults.some(result => questionLedger?.isAcknowledgment(result) || (kind === "practice" && isPluginProblemPoseAcknowledgment(result))) || stopper(turn) ? { action: "end" } : undefined),
+		finishTurn: (turn) => {
+            if (turn.toolResults.some(result => questionLedger?.isAcknowledgment(result) || (kind === "practice" && isPluginProblemPoseAcknowledgment(result))) || stopper(turn)) return { action: "end" };
+            // Recover a plan-only opening in the same run, without inventing learner approval.
+            // A bounded continuation avoids an endless loop if a provider ignores policy.
+            if (paperTeacher && !openedBeforeRun && openingRecoveries < 2 && !turn.message.content.some(b => b.type === "toolCall") && !turn.context.messages.some(m => m.role === "toolResult" && m.toolName === "lesson_progress" && !m.isError)) {
+                openingRecoveries++;
+                return { action: "continue" };
+            }
+            return undefined;
+        },
 		// Wave C (2026-09-26, owner correction same day): markers handed to a
 		// live run drain from pi's STEERING queue — the lesson loop is one
 		// continuous teach→quiz→teach run, so delivery must inject at turn
@@ -325,6 +341,7 @@ ${assessmentInstruction(opts.teachingHistory?.() ?? [])}` : "";
 			return messages.length ? { messages } : undefined;
 		} } : {}),
 		prepareRequest: (request) => {
+            if (openingRecoveries) request.context.systemPrompt += "\nOpening recovery: planning prose alone does not teach the paper. Begin actual explanation now, call lesson_progress, and give a substantive overview in this response. Do not ask for approval or repeat the plan.";
 			if (opts.callPurpose) {
 				let learner = false, automatic = false;
 				const messages = request.context.messages;
