@@ -235,6 +235,7 @@ ${assessmentInstruction(opts.teachingHistory?.() ?? [])}` : "";
 	const instructed = composedPrompt + policy;
  const paperTeacher = kind === "teacher" && !!opts.teachingPreferences && preferences.style === "paper" && !opts.tools;
  let openingRecoveries = 0;
+ let openingRecoveryPending = false;
  const openedBeforeRun = (opts.teachingHistory?.() ?? opts.messages ?? []).some(m => m.role === "toolResult" && m.toolName === "lesson_progress" && !m.isError);
 	const builtinPrompt = narrationGuard ? `${instructed}\n\n---\n\n${SEND_TO_USER_DELIVERY_RULE}` : instructed;
 	// Bind native read and preserve the kind/model-aware Claude output gate
@@ -317,6 +318,7 @@ ${assessmentInstruction(opts.teachingHistory?.() ?? [])}` : "";
             // A bounded continuation avoids an endless loop if a provider ignores policy.
             if (paperTeacher && !openedBeforeRun && openingRecoveries < 2 && !turn.message.content.some(b => b.type === "toolCall") && !turn.context.messages.some(m => m.role === "toolResult" && m.toolName === "lesson_progress" && !m.isError)) {
                 openingRecoveries++;
+                openingRecoveryPending = true;
                 return { action: "continue" };
             }
             return undefined;
@@ -363,7 +365,10 @@ ${assessmentInstruction(opts.teachingHistory?.() ?? [])}` : "";
 				opts.requestCycle?.rejectLocalRequest();
 				throw error;
 			}
-            if (openingRecoveries) return { context: { ...request.context, messages: [...request.context.messages, { role: "system", timestamp: Date.now(), content: "Opening recovery: planning prose alone does not teach the paper. Begin actual explanation now, call lesson_progress, and give a substantive overview in this response. Do not ask for approval or repeat the plan." }] } };
+            if (openingRecoveryPending) {
+                openingRecoveryPending = false;
+                return { context: { ...request.context, messages: [...request.context.messages, { role: "system", timestamp: Date.now(), content: "Opening recovery: planning prose alone does not teach the paper. Begin actual explanation now, call lesson_progress, and give a substantive overview in this response. Do not ask for approval or repeat the plan. Once the overview has begun, continue the lesson normally." }] } };
+            }
 		},
 	});
 	questionLedger?.bind(agent);
