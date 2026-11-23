@@ -46,7 +46,7 @@ npm run lint
 npm run papers:appimage
 ```
 
-The AppImage is written under `dist/`. The `papers:appimage` command builds and checks the standalone server before invoking Electron Builder with `--publish never`. Packaged smoke checks use synthetic isolated profiles. Automatic updates are off by default, and any explicit update check uses this fork's release feed, not upstream's.
+The AppImage is written under `dist/`. After packaging, run `node scripts/smoke-papers-appimage.mjs` on Linux with Xvfb to verify the actual mounted AppImage, desktop API, lesson controls and isolated profile. `node scripts/smoke-paper-teaching.mjs` independently checks the standalone UI using synthetic lesson data. The `papers:appimage` command builds and checks the standalone server before invoking Electron Builder with `--publish never`. Packaged smoke checks use synthetic isolated profiles. Automatic updates are off by default, and any explicit update check uses this fork's release feed, not upstream's.
 
 The regression scenario in `tests/paper-teaching.test.ts` uses an injected scripted model and a synthetic StateFuzz-style example. It checks cold-question rejection, explanation-before-check flow, budgets, repair limits, map navigation without quizzes, invalidation and full exports. These tests establish runtime contracts, not the teaching quality of every configured live model. No real provider billing is needed for the tests.
 
