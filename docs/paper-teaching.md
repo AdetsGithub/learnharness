@@ -51,3 +51,15 @@ The AppImage is written under `dist/`. After packaging, run `node scripts/smoke-
 The regression scenario in `tests/paper-teaching.test.ts` uses an injected scripted model and a synthetic StateFuzz-style example. It checks cold-question rejection, explanation-before-check flow, budgets, repair limits, map navigation without quizzes, invalidation and full exports. These tests establish runtime contracts, not the teaching quality of every configured live model. No real provider billing is needed for the tests.
 
 The original AGPL-3.0-only licence and upstream attribution are retained. Source: https://github.com/AdetsGithub/learnharness/tree/paper-teaching
+
+## Version 0.7.2: reading, depth and voluntary checks
+
+The session bar offers Continue reading and Check my understanding independently. A native lesson question requires an explicit learner request; the grounding and budget guards still apply. Set Lesson checks to None to remove that action. Prerequisite calibration remains separately configurable. After feedback, choose another check explicitly rather than entering an automatic retry loop.
+
+The bar distinguishes material explained from understanding assessed. Overview completion replaces Continue reading with Explain the difficult details and Work through a case study, alongside the optional check. A typed Continue after completion requests a deeper worked mechanism. Reading completion never claims mastery.
+
+Paper prompts limit the opening route to three sentences, keep the detailed map collapsible, require intermediate representations in worked traces, compare the contribution with relevant prior approaches, and discourage repeated caveats and examples. The runtime rejects readiness/plan-acceptance tool questions and retries a plan-only teacher opening up to twice in the same run. These bounds improve recovery but do not guarantee every model will follow the desired prose length.
+
+Backtick-wrapped equations such as `$A=3$` are repaired in teaching display and Markdown export. Source history is preserved; fenced code, shell variables and literal code examples remain unchanged.
+
+Validation uses scripted model responses and isolated browser/AppImage profiles. It establishes policy and UI behavior, not learning outcomes or the factual quality of a live generated lesson. Test the new version with a fresh paper session to assess those qualities.

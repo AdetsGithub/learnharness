@@ -79,8 +79,28 @@ try {
 	await page.click('[data-testid="continue-reading"]');
 	for (let i = 0; !continuation && i < 50; i++) await delay(100);
 	assert.equal(continuation?.input?.type, "text"); assert.match(continuation.input.text, /substantial explanation/);
+	// A voluntary check uses the same durable input path as typed learner text.
+ const beforeCheck = page.waitForResponse(r => new URL(r.url()).pathname === route && r.status() === 200);
+ await page.reload({ waitUntil: "domcontentloaded" }); await beforeCheck;
+ continuation = undefined;
+ const check = await page.waitForSelector('button::-p-text(Check my understanding)'); await check.click();
+ for (let i = 0; !continuation && i < 50; i++) await delay(100);
+ assert.match(continuation?.input?.text ?? "", /Check my understanding/);
+ // A completed overview offers new work, while explicitly leaving mastery unassessed.
+ record.messages.push(assistant("done", [{ type: "toolCall", name: "lesson_progress", id: "overview-done", arguments: { nodeId: "mechanism", summary: "Overview synthesis", complete: true } }]), result("overview-done", "lesson_progress", { ok: true, nodeId: "mechanism", summary: "Overview synthesis", complete: true }), assistant("synthesis", [{ type: "text", text: "The overview is complete; a deeper causal trace remains available." }]));
+ record.settings.teaching.checkpoints = 4;
+ fs.writeFileSync(chatFile, JSON.stringify(record));
+ const completedSettings = page.waitForResponse(r => new URL(r.url()).pathname === route && r.status() === 200);
+ await page.reload({ waitUntil: "domcontentloaded" }); await completedSettings;
+ await page.waitForSelector('button::-p-text(Explain the difficult details)');
+ assert.equal(await page.$('[data-testid="continue-reading"]'), null);
+ assert.match(await page.$eval('[data-testid="paper-lesson-bar"]', e => e.textContent), /Overview explained.*Understanding not yet assessed/);
+ continuation = undefined;
+ await page.click('button::-p-text(Explain the difficult details)');
+ for (let i = 0; !continuation && i < 50; i++) await delay(100);
+ assert.match(continuation?.input?.text ?? "", /intermediate representations/);
 	assert.deepEqual(errors, []);
-	fs.writeFileSync(path.join(evidence, "result.json"), JSON.stringify({ ok: true, checks: ["paper defaults", "zero-check reading mode", "persisted session controls", "invalidated assessment display", "durable ungraded continuation", "no browser runtime errors"], profile: "temporary synthetic profile; removed after run" }, null, 2));
+	fs.writeFileSync(path.join(evidence, "result.json"), JSON.stringify({ ok: true, checks: ["paper defaults", "zero-check reading mode", "persisted session controls", "invalidated assessment display", "durable ungraded continuation", "voluntary comprehension action", "completed overview depth action", "reading distinguished from assessment", "no browser runtime errors"], profile: "temporary synthetic profile; removed after run" }, null, 2));
 	console.log("[paper-smoke] paper settings, assessment correction, reload and ungraded continuation passed");
 } catch (e) { console.error(log); throw e; }
 finally { await browser?.close(); child.kill("SIGTERM"); await Promise.race([once(child, "exit"), delay(5000)]); if (child.exitCode === null) child.kill("SIGKILL"); fs.rmSync(home, { recursive: true, force: true }); }
