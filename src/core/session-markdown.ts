@@ -1,3 +1,4 @@
+import { normalizePaperNotation } from "./math-delims.ts";
 /**
  * Session → markdown — the ONE formatting engine (owner ruling 2026-09-27).
  *
@@ -234,7 +235,7 @@ export function messageMarkdown(
 		}
 	} else if (role === "assistant") {
 		for (const text of userFacingTextOf((message as { content: unknown }).content, ctx?.failedOutputCalls ?? failedOutputCallIds([message]))) {
-			parts.push(`### Teacher${anchor}\n\n${text.trim()}`);
+			parts.push(`### Teacher${anchor}\n\n${normalizePaperNotation(text).trim()}`);
 		}
 		if (message.role === "assistant" && Array.isArray(message.content)) {
 			for (const [contentIndex, block] of message.content.entries()) {

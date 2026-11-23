@@ -119,3 +119,14 @@ export function healOverescapedCommands(text: string): string {
 export function repairMathForDisplay(text: string): string {
 	return healOverescapedCommands(restoreMathEscapes(recoverDocumentLayout(text)));
 }
+
+/** Repair a common paper-tutor typo, preserving fences, shell variables and literal examples.
+ * This is a presentation/export projection; saved model content remains unchanged. */
+export function normalizePaperNotation(text: string): string {
+ return readContentSpans(text).map(span => {
+  if (span.kind !== "code") return span.raw;
+  const match = /^`\$([^`\n$]+)\$`$/.exec(span.raw);
+  if (!match || !/[=<>_\\]/.test(match[1]!)) return span.raw;
+  return match[1]!.includes("\\") || match[1]!.includes("_") ? `$${match[1]}$` : `\`${match[1]}\``;
+ }).join("");
+}

@@ -1,3 +1,4 @@
+import { normalizePaperNotation } from "../src/core/math-delims.ts";
 import assert from "node:assert/strict";
 import { after, describe, it } from "node:test";
 import { createFauxCore, fauxAssistantMessage, fauxText, fauxToolCall } from "@earendil-works/pi-ai";
@@ -21,6 +22,12 @@ const created: string[] = [];
 after(() => { for (const id of created) chatStore.deleteChat(id); });
 
 describe("paper lesson policy", () => {
+ it("repairs backtick-wrapped equations for reading and export, preserving literal code", () => {
+  assert.equal(normalizePaperNotation("Set `$A=3$` and `$x_i$`."), "Set `A=3` and $x_i$.");
+  for (const literal of ["`$HOME`", "`$x$`", "```c\n`$A=3$`\n```", "`echo $A=3$`", "`A = 3`"]) assert.equal(normalizePaperNotation(literal), literal);
+  assert.match(sessionMarkdown([prose("Set `$A=3$`.")], { anchors: false }), /Set `A=3`/);
+ });
+
 	it("defaults to exposition with bounded checks; validates settings without losing explicit zero", () => {
 		assert.deepEqual(resolveTeachingPreferences(), PAPER_TEACHING_DEFAULTS);
 		assert.equal(resolveTeachingPreferences({ checkpoints: 0 }).checkpoints, 0);

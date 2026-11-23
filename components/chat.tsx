@@ -31,6 +31,7 @@ import { Shimmer } from "@/components/ai-elements/shimmer";
 import { BrailleSpinner } from "@/components/braille-spinner";
 import { ToolPartRenderer } from "@/components/plugin-renderers";
 import { Separator } from "@/components/ui/separator";
+import { normalizePaperNotation } from "@/src/core/math-delims";
 import { PAPER_ACTIONS, paperLessonStatus } from "@/src/core/paper-teaching";
 import { SessionTeachingBar } from "./teaching-controls";
 import { assessmentReviews } from "@/src/core";
@@ -1936,7 +1937,7 @@ export function Chat({
 														const anchor = sourceId && sourceTextParts.get(sourceId) === part.id ? messageAnchorId(sourceId) : undefined;
 														return (
 															<div key={part.id || pi} id={anchor} data-source-message-id={sourceId ?? undefined} className="lh-source-passage">
-																<MessageResponse>{part.text}</MessageResponse>
+																<MessageResponse>{kind !== "practice" ? normalizePaperNotation(part.text) : part.text}</MessageResponse>
 															</div>
 														);
 													}
