@@ -537,7 +537,7 @@ describe("compactAnswerForModel", () => {
 
 	it("dontKnow: the gap flag stands alone — no verdict, no confidence", () => {
 		const compact = compactAnswerForModel(buildAnswer(quizData(), { dontKnow: true }));
-		assert.deepEqual(compact, { kind: "quiz", dontKnow: true });
+		assert.deepEqual(compact, { kind: "quiz", assessmentState: "unassessed", dontKnow: true });
 	});
 
 	it("ask: selection or text; never graded", () => {
@@ -555,7 +555,7 @@ describe("compactAnswerForModel", () => {
 	it("dismissed: a one-field record", () => {
 		const ad = { ...buildAnswer(quizData(), { dontKnow: true }), dismissed: true };
 		const compact = compactAnswerForModel(ad);
-		assert.deepEqual(compact, { kind: "quiz", dismissed: true });
+		assert.deepEqual(compact, { kind: "quiz", dismissed: true, assessmentState: "unassessed" });
 	});
 });
 
@@ -576,6 +576,7 @@ describe("dismissedAnswer (the ESC-abort record)", () => {
 		assert.deepEqual(compactAnswerForModel(dismissedAnswer("quiz", "Pick one")), {
 			kind: "quiz",
 			dismissed: true,
+			assessmentState: "skipped",
 		});
 	});
 });

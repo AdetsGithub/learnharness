@@ -408,6 +408,7 @@ export function buildCompactionPrompt(input: {
 Write the summary with EXACTLY these sections, in this order:
 
 ## The learner's understanding
+Preserve explicit assessment states: unassessed, untaught, skipped, invalidated, needs-practice and demonstrated. A later assessment_review supersedes interpretation of the original answer. Never treat untaught or invalidated items as learner misconceptions, or supplied notes as mastery. Teacher errors belong to the teacher. Preserve the lesson policy and requested pacing.
 The most detailed picture you can give of what this learner knows and how that EVOLVED across the session: what they answered and how well (quiz outcomes, correct reasoning, mistakes), their stated or displayed confidence, misconceptions that surfaced, which were corrected and which still stand. This section carries the most weight — future teaching decisions hang on it.
 
 ## The teaching arc

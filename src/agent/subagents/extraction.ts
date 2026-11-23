@@ -441,7 +441,7 @@ Your deliverable is twofold: the core ideas themselves, and the chains of reason
 	`Extract the load-bearing ideas of the subject — what a reference on it would teach — not the full run
 of the discourse. An idea earns its place only when the source's arguments run through it — examples,
 notation glosses, and restatements that no argument needs are not core ideas.`,
-)}\n\n${SESSION_MESSAGE_ID_RULE}`;
+)}\n\n${SESSION_MESSAGE_ID_RULE}\n\nFor research papers, preserve distinctions between definitions, heuristic design choices, explanatory rationale and empirical findings. Do not turn an engineering trade-off into a necessary logical derivation. Extract source-grounded subject knowledge; graph presence is never evidence of learner mastery.`;
 
 export const NOTES_EXTRACTOR_INSTRUCTIONS = composeExtractionInstructions(
 	NOTES_PREAMBLE,

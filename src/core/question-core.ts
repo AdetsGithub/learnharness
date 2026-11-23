@@ -436,6 +436,7 @@ export interface QuestionData {
  *  NO questionId (owner, tool-result diet 2026-10-02): it was the
  *  toolCallId restated — the toolResult message already carries it. */
 export interface QuestionAnswerData {
+	assessmentState?: import("./paper-teaching.ts").AssessmentState;
 	kind: QuestionKind;
 	/** The persisted call's tool NAME (owner, 2026-10-09): probe-phase
 	 *  calls are `probe`/`recall`, teach calls `quiz`/`explain` — the
@@ -752,6 +753,7 @@ export function buildAnswer(qd: QuestionData, req: AnswerRequest, tool?: string)
 		options: qd.options.map((o, i) => ({ index: i + 1, label: o.label })),
 		...(qd.optionOrder ? { optionOrder: qd.optionOrder } : {}),
 		dontKnow: req.dontKnow === true,
+		...(req.dontKnow ? { assessmentState: "unassessed" as const } : {}),
 		answers: [],
 		thinking: req.thinking?.trim() || undefined,
 		readingThinking: req.readingThinking?.trim() || undefined,
@@ -811,13 +813,14 @@ export function dismissedAnswer(kind: QuestionKind, questionText: string): Quest
 		dontKnow: false,
 		answers: [],
 		dismissed: true,
+		assessmentState: "skipped",
 		answeredAt: new Date().toISOString(),
 	};
 }
 
 export function compactAnswerForModel(ad: QuestionAnswerData): Record<string, unknown> {
-	if (ad.dismissed) return { kind: ad.kind, dismissed: true };
-	const out: Record<string, unknown> = { kind: ad.kind };
+	if (ad.dismissed) return { kind: ad.kind, dismissed: true, ...(ad.assessmentState ? { assessmentState: ad.assessmentState } : {}) };
+	const out: Record<string, unknown> = { kind: ad.kind, ...(ad.assessmentState ? { assessmentState: ad.assessmentState } : {}) };
 	if (ad.dontKnow) out.dontKnow = true;
 	// Array.isArray: the seam is called with `unknown` answers (test
 	// fixtures, foreign records) — degrade to omission, never crash.

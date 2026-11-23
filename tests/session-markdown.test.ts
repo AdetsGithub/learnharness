@@ -89,7 +89,7 @@ describe("messageMarkdown", () => {
 		assert.match(md, /^### Quiz · r1$/m);
 		assert.match(md, /\*\*Q:\*\* What is a derivative\?/);
 		assert.match(md, /The learner answered incorrectly\./);
-		assert.match(md, /\*\(his thinking: mixed up signs\)\*/);
+		assert.match(md, /\*\*Thinking:\*\* mixed up signs/);
 	});
 
 	it("explain results: the learner's own words are shown", () => {

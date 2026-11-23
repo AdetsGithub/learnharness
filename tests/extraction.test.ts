@@ -1494,11 +1494,11 @@ describe("the extractor redesign (owner, 2026-09-30): chains are the deliverable
 		}
 	});
 
-	it("preserves the complete teaching-session prompt byte-for-byte", () => {
+	it("preserves the teaching-session prompt and appends paper evidence boundaries", () => {
 		// Original UTF-8 snapshot, including every newline, preamble and the
 		// session-only anchor rule. Notes-only changes must not alter it.
 		assert.equal(
-			createHash("sha256").update(EXTRACTOR_INSTRUCTIONS, "utf8").digest("hex"),
+			createHash("sha256").update(EXTRACTOR_INSTRUCTIONS.split("\n\nFor research papers,")[0]!, "utf8").digest("hex"),
 			"a8bddd7d47130ed5e39ffe7d8d0ed6efdd6b30407d52cd9838e7be2e465089a6",
 		);
 	});

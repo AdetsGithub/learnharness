@@ -36,7 +36,7 @@ test("letters map back to authored positions without changing the seeded permuta
 		kind: "quiz", optionOrder: q.optionOrder, correct: true, thinking: "I ruled out A.",
 		answers: [{ index: q.correctIndices![0], label: "Venus", letter: String.fromCharCode(64 + q.correctIndices![0]!) }],
 	});
-	assert.deepEqual(compactAnswerForModel(buildAnswer(q, { dontKnow: true })), { kind: "quiz", dontKnow: true, optionOrder: q.optionOrder });
+	assert.deepEqual(compactAnswerForModel(buildAnswer(q, { dontKnow: true })), { kind: "quiz", assessmentState: "unassessed", dontKnow: true, optionOrder: q.optionOrder });
 });
 
 test("ask preserves author order and Other still supplies the map without a selected letter", () => {
@@ -76,5 +76,5 @@ test("A–Z only; legacy empty rows don't shift the original index; legacy answe
 	const q = question("ask", "legacy");
 	const legacy = buildAnswer({ ...q, optionOrder: undefined }, { values: ["m"] });
 	assert.deepEqual(compactAnswerForModel(legacy), { kind: "ask", answers: [{ index: 1, label: "Mercury" }] });
-	assert.deepEqual(compactAnswerForModel(dismissedAnswer("ask", "Which planet?")), { kind: "ask", dismissed: true });
+	assert.deepEqual(compactAnswerForModel(dismissedAnswer("ask", "Which planet?")), { kind: "ask", dismissed: true, assessmentState: "skipped" });
 });

@@ -20,6 +20,7 @@
  * learning evidence); custom markers are invisible, same as the view.
  */
 
+import { assessmentReviews, type AssessmentReview } from "./paper-teaching.ts";
 import { citationsToReadableText } from "./citations.ts";
 import type { LhMessage } from "./native-messages.ts";
 import {
@@ -46,6 +47,7 @@ export interface MarkdownContext {
 	/** toolCallId → the call part's name + arguments. */
 	calls: Map<string, { name: string; args: Record<string, unknown> | undefined }>;
 	failedOutputCalls?: ReadonlySet<string>;
+	reviews?: Map<string, AssessmentReview>;
 }
 
 function markdownContext(messages: ReadonlyArray<LhMessage>): MarkdownContext {
@@ -64,7 +66,7 @@ function markdownContext(messages: ReadonlyArray<LhMessage>): MarkdownContext {
 			}
 		}
 	}
-	return { messages, calls, failedOutputCalls: failedOutputCallIds(messages) };
+	return { messages, calls, failedOutputCalls: failedOutputCallIds(messages), reviews: assessmentReviews(messages) };
 }
 
 /** solvedWithHints → "Solved with hints" — the outcome enum reads as prose. */
@@ -97,7 +99,17 @@ function toolResultBody(result: ToolResultMessage, ctx?: MarkdownContext): { hea
 				dontKnow: boolean;
 				note: string;
 				text: string;
-				answers: string[];
+				answers: Array<string | { label?: string; value?: string; index?: number }>;
+				options: Array<{ index: number; label: string }>;
+				thinking: string;
+				readingThinking: string;
+				thinkingWhileReading: string;
+				confidence: number;
+				questionType: string;
+				assessmentState: string;
+				correctIndices: number[];
+				committed: string;
+				explanation: string;
 				other: string;
 				dismissed: boolean;
 		  }>
@@ -119,12 +131,29 @@ function toolResultBody(result: ToolResultMessage, ctx?: MarkdownContext): { hea
 						: "Recall check"; // explain — the teach free-recall name
 		const question = typeof out?.questionText === "string" && out.questionText ? out.questionText : "(no question text)";
 		const body = [`**Q:** ${question}`];
-		if (out?.dismissed === true) body.push("The learner skipped this check.");
+		const call = ctx?.calls.get(result.toolCallId)?.args;
+		const type = out?.questionType ?? call?.type;
+		if (type) body.push(`**Question type:** ${String(type)}`);
+		const options = out?.options ?? (Array.isArray(call?.options) ? call.options.map((o, i) => ({ index: i + 1, label: typeof o === "string" ? o : String((o as { label?: unknown }).label ?? "") })) : []);
+		if (options.length) body.push("**Options:**\n" + options.map(o => `${o.index}. ${o.label}`).join("\n"));
+		if (out?.answers?.length) body.push("**Selected answer:** " + out.answers.map(a => typeof a === "string" ? a : a.label ?? a.value ?? JSON.stringify(a)).join(", "));
+		if (out?.text?.trim()) body.push(`**Learner response:** ${out.text.trim()}`);
+		const review = ctx?.reviews?.get(result.toolCallId);
+		if (review) body.push(`**Assessment: ${review.state}.** ${review.reason} (supersedes the original verdict)`);
+		else if (out?.assessmentState) body.push(`**Assessment:** ${out.assessmentState}`);
+		if (out?.dismissed === true) body.push(out.assessmentState === "untaught" ? "The learner requested teaching before attempting this check." : "The learner skipped this check.");
 		else if (out?.dontKnow === true) body.push("The learner did not know.");
-		else if (out?.correct === true) body.push("The learner answered correctly.");
-		else if (out?.correct === false) body.push("The learner answered incorrectly.");
+		else if (!review && out?.correct === true) body.push("The learner answered correctly.");
+		else if (!review && out?.correct === false) body.push("The learner answered incorrectly.");
 		else if (typeof out?.text === "string" && out.text.trim()) body.push(`The learner answered in his own words: ${out.text.trim()}`);
-		if (typeof out?.note === "string" && out.note) body.push(`*(his thinking: ${out.note})*`);
+		const thinking = out?.thinking ?? out?.note;
+		if (thinking) body.push(`**Thinking:** ${thinking}`);
+		const reading = out?.readingThinking ?? out?.thinkingWhileReading;
+		if (reading) body.push(`**Thinking while reading:** ${reading}`);
+		if (typeof out?.confidence === "number") body.push(`**Self-reported confidence:** ${out.confidence}%`);
+		if (out?.correctIndices?.length) body.push(`**Committed correct options:** ${out.correctIndices.join(", ")}`);
+		if (out?.committed) body.push(`**Committed answer:** ${out.committed}`);
+		if (out?.explanation) body.push(`**Answer explanation:** ${out.explanation}`);
 		return { heading, body };
 	}
 
@@ -159,7 +188,7 @@ function toolResultBody(result: ToolResultMessage, ctx?: MarkdownContext): { hea
 		const question = typeof out?.questionText === "string" && out.questionText ? out.questionText : "(no question text)";
 		const body = [`**Q:** ${question}`];
 		const chosen = [
-			...(Array.isArray(out?.answers) ? out!.answers! : []),
+			...(Array.isArray(out?.answers) ? out.answers.map(a => typeof a === "string" ? a : a.label ?? a.value ?? JSON.stringify(a)) : []),
 			...(typeof out?.other === "string" && out.other.trim() ? [out.other.trim()] : []),
 		];
 		if (typeof out?.text === "string" && out.text.trim()) body.push(`The learner answered: ${out.text.trim()}`);
@@ -169,6 +198,14 @@ function toolResultBody(result: ToolResultMessage, ctx?: MarkdownContext): { hea
 		return { heading: "Question", body };
 	}
 
+	if (result.toolName === "assessment_review") {
+		const review = result.details as unknown as AssessmentReview;
+		return { heading: "Assessment correction", body: [`**Question:** ${review.questionId}`, `**State:** ${review.state}`, review.reason] };
+	}
+	if (result.toolName === "lesson_progress") {
+		const progress = result.details as { summary?: string; complete?: boolean };
+		return { heading: progress.complete ? "Lesson synthesis" : "Lesson section", body: [progress.summary ?? ""] };
+	}
 	// Parity with the line builder: other clean tool results are one line.
 	return { heading: "Tool", body: [`*${result.toolName} result delivered*`] };
 }
