@@ -30,6 +30,7 @@ The SDK is **type-only**. Call the contexts supplied by LearnHarness, not runtim
 - [contracts-plan](contracts-plan.md)
 - [events](events.md)
 - [native-messages](native-messages.md)
+- [paper-teaching](paper-teaching.md)
 - [phases](phases.md)
 - [plugin-agents](plugin-agents.md)
 - [plugin-problems](plugin-problems.md)
@@ -223,6 +224,8 @@ These are reachable through public data, event, inheritance or helper-type relat
 - [ServerEventType](events.md#servereventtype) — `events`
 - [LhMarkerMessage](native-messages.md#lhmarkermessage) — `native-messages`
 - [LhMessage](native-messages.md#lhmessage) — `native-messages`
+- [TeachingPreferences](paper-teaching.md#teachingpreferences) — `paper-teaching`
+- [TeachingStyle](paper-teaching.md#teachingstyle) — `paper-teaching`
 - [Phase3](phases.md#phase3) — `phases`
 - [Immutable](plugin-submissions.md#immutable) — `plugin-submissions`
 - [ImmutableJson](plugin-submissions.md#immutablejson) — `plugin-submissions`
@@ -256,4 +259,4 @@ These are reachable through public data, event, inheritance or helper-type relat
 
 Standard JavaScript/DOM types (`Promise`, `AbortSignal`, `File`, `HTMLElement`, and utility types) use their standard contracts. Pi model/messages/tools and TypeBox schemas use the exact peer versions declared by the bundled SDK's `package.json`. Supply those peers when typechecking; they are development types, not permission to import private LearnHarness runtime modules.
 
-Coverage: **140 public types**, **57 supporting declarations**, **894 declared member signatures/variants**. Generation contains no build timestamps or absolute source paths.
+Coverage: **140 public types**, **59 supporting declarations**, **900 declared member signatures/variants**. Generation contains no build timestamps or absolute source paths.

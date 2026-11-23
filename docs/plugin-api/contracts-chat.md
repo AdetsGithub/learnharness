@@ -299,6 +299,7 @@ worker roles use their own model resolution.
 
 ```ts
 export interface ChatSettings {
+    teaching?: import("../paper-teaching.ts").TeachingPreferences;
     model?: {
         provider: string;
         id: string;
@@ -307,12 +308,23 @@ export interface ChatSettings {
 }
 ```
 
+**Related types:** [TeachingPreferences](paper-teaching.md#teachingpreferences).
+
 **Member index** (including nested object members; inherited members are defined in the linked base types):
 
+- [teaching](#chatsettings-teaching)
 - [model](#chatsettings-model)
 - [model.provider](#chatsettings-modelprovider)
 - [model.id](#chatsettings-modelid)
 - [thinkingLevel](#chatsettings-thinkinglevel)
+
+### ChatSettings teaching
+
+A snapshot of the lesson policy, independent of later global changes.
+
+```ts
+teaching?: import("../paper-teaching.ts").TeachingPreferences;
+```
 
 ### ChatSettings model
 

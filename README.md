@@ -1,3 +1,11 @@
+# LearnHarness Papers fork
+
+An explanation-first research-paper tutor built on LearnHarness. Separate Linux AppImage and profile; bounded prerequisite checks, optional lesson checks, ungraded reading progress, assessment corrections and complete exports. See [paper-teaching setup and build instructions](docs/paper-teaching.md).
+
+Source branch: `paper-teaching`. Original project and licence attribution follow below.
+
+---
+
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/lh_banner_dark.png">
