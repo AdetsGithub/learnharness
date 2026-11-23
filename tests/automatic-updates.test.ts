@@ -144,15 +144,15 @@ describe("automatic-update preference gate", () => {
 		["ON", { general: { autoUpdate: true } }], ["absent field", { general: {} }],
 		["absent section", { version: 1 }], ["null", null], ["non-boolean", { general: { autoUpdate: "false" } }],
 	] as const) {
-		it(`${label} keeps automatic checks enabled`, async () => {
+		it(`${label} enables automatic checks only with explicit opt-in`, async () => {
 			const f = fixture(); f.setSettings(setting); f.run("setupAutoUpdater()"); await f.check();
-			assert.equal(f.updater.checks, 1);
+			assert.equal(f.updater.checks, label === "ON" ? 1 : 0);
 		});
 	}
 	for (const [label, failure] of [["missing", new Error("ENOENT")], ["unreadable", new Error("EACCES")], ["corrupt", "{nope"]] as const) {
-		it(`${label} settings keep automatic checks enabled`, async () => {
+		it(`${label} settings leave automatic checks off`, async () => {
 			const f = fixture(); f.setSettingsFailure(failure); f.run("setupAutoUpdater()"); await f.check();
-			assert.equal(f.updater.checks, 1);
+			assert.equal(f.updater.checks, 0);
 		});
 	}
 
@@ -250,8 +250,8 @@ describe("startup, timer, trusted IPC and menu wiring", () => {
 		assert.equal(f.updater.checks, 2, "checks also work with every window closed");
 	});
 
-	it("ON/default boot checks immediately and status never disables the scheduled check", async () => {
-		const f = fixture(); f.setSettings({ version: 1 }); await f.run("main()");
+	it("explicit ON boot checks immediately and status never disables the scheduled check", async () => {
+		const f = fixture(); f.setSettings({ general: { autoUpdate: true } }); await f.run("main()");
 		assert.equal(f.updater.checks, 1);
 		f.run('reportUpdateStatus("downloading", "0.3.8")'); f.intervals[0]!.callback(); await Promise.resolve();
 		assert.equal(f.updater.checks, 2);

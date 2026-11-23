@@ -41,6 +41,10 @@ if (exists(path.join(ROOT, "public"))) {
 	copyTree(path.join(ROOT, "public"), path.join(STANDALONE, "public"));
 }
 
+// Paper policies are runtime assets selected by session settings. Copy the full
+// source directory explicitly so a new fragment is never silently omitted by tracing.
+copyTree(path.join(ROOT, "src", "agent", "prompts", "paper"), path.join(STANDALONE, "src", "agent", "prompts", "paper"));
+
 // 2) Safety: the repo's real data/ must NEVER ride along in the bundle.
 const leakedData = path.join(STANDALONE, "data");
 if (exists(leakedData)) {
@@ -105,6 +109,7 @@ for (const asset of [
 	path.join("scripts", "plugin-loader.cjs"),
 	path.join("public", "plugin-loader.js"),
 	path.join("src", "agent", "system-prompt.md"),
+	path.join("src", "agent", "prompts", "paper", "system-prompt.md"),
 	path.join("src", "agent", "prompts", "teacher", "20-teaching.md"),
 	path.join("src", "agent", "prompts", "side-chat", "00-base.md"),
 	path.join("src", "agent", "prompts", "side-chat", "90-style.md"),
