@@ -54,7 +54,7 @@ function request(chatId: string, input: unknown) {
 	return new Request("http://test/api/chat", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chatId, input }) });
 }
 async function turn(chatId: string, input: unknown, engine: PiEngine) {
-	const response = await handleChatRequest(request(chatId, input), opts => createTeacherAgent(undefined, { ...opts, engine }));
+	const response = await handleChatRequest(request(chatId, input), opts => createTeacherAgent(undefined, { ...opts, engine, teachingPreferences: { style: "guided" } }));
 	if (response.ok) { const handle = runningTurn(chatId); if (handle) await new Response(handle.subscribe()).text(); }
 	return response;
 }

@@ -84,7 +84,7 @@ type AgentFactory = (opts: AgentBuildOptions & { teaching: boolean }) => Teachin
 async function turn(engine: PiEngine, chatId: string, input: unknown, buildAgent?: AgentFactory): Promise<Response> {
 	const ack = await handleChatRequest(
 		post(chatId, input),
-		buildAgent ?? ((opts) => createTeacherAgent(undefined, { ...opts, engine })),
+		buildAgent ?? ((opts) => createTeacherAgent(undefined, { ...opts, engine, teachingPreferences: { style: "guided" } })),
 	);
 	if (ack.status === 200) {
 		const handle = runningTurn(chatId);
@@ -302,10 +302,10 @@ describe("failed-response Retry (issue #110)", () => {
 		const selections: boolean[] = [];
 		const factory: AgentFactory = (opts) => {
 			selections.push(opts.teaching);
-			if (opts.teaching) return createTeacherAgent(undefined, { ...opts, engine });
+			if (opts.teaching) return createTeacherAgent(undefined, { ...opts, engine, teachingPreferences: { style: "guided" } });
 			return createProberAgent({
 				chatId: chat.id, chatStore, jobStore, deliver: (s) => delivered.push(s), spawn: () => {},
-			}, { ...opts, engine });
+			}, { ...opts, engine, teachingPreferences: { style: "guided" } });
 		};
 		await turn(engine, chat.id, { type: "text", text: "teach me planet order" }, factory);
 		const before = chatStore.getChat(chat.id)!.messages;
@@ -344,9 +344,9 @@ describe("failed-response Retry (issue #110)", () => {
 			const factory: AgentFactory = (opts) => {
 				assert.equal(opts.teaching, kind === "teacher");
 				assert.ok(opts.messages?.every((m) => m.role !== "assistant" || m.stopReason !== "error"));
-				if (kind === "practice") return createPracticeAgent({ chatId: chat.id, chatStore }, { ...opts, engine });
-				if (kind === "prober") return createProberAgent({ chatId: chat.id, chatStore, jobStore, deliver: () => {}, spawn: () => {} }, { ...opts, engine });
-				return createTeacherAgent(undefined, { ...opts, engine });
+				if (kind === "practice") return createPracticeAgent({ chatId: chat.id, chatStore }, { ...opts, engine, teachingPreferences: { style: "guided" } });
+				if (kind === "prober") return createProberAgent({ chatId: chat.id, chatStore, jobStore, deliver: () => {}, spawn: () => {} }, { ...opts, engine, teachingPreferences: { style: "guided" } });
+				return createTeacherAgent(undefined, { ...opts, engine, teachingPreferences: { style: "guided" } });
 			};
 			assert.equal((await turn(engine, chat.id, { type: "retry" }, factory)).status, 200);
 			assertPreserved(before, chatStore.getChat(chat.id)!.messages);
@@ -365,7 +365,7 @@ describe("failed-response Retry (issue #110)", () => {
 		const factory: AgentFactory = (opts) => {
 			built = true;
 			assert.equal(opts.callPurpose?.background, false);
-			return createTeacherAgent(undefined, { ...opts, engine });
+			return createTeacherAgent(undefined, { ...opts, engine, teachingPreferences: { style: "guided" } });
 		};
 		assert.equal((await turn(engine, chat.id, { type: "retry" }, factory)).status, 200);
 		assert.ok(built);

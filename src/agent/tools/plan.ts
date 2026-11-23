@@ -1,3 +1,4 @@
+import { ASSESSMENT_STATES } from "../../core/paper-teaching.ts";
 import { Type } from "typebox";
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { serverExecute } from "../tool-execute.ts";
@@ -60,7 +61,28 @@ const planInitInput = Type.Object({
 });
 
 export function planTools(ctx: PlanToolContext): Record<string, AgentTool<any>> {
+	const progressInput = Type.Object({ nodeId: Type.String({ minLength: 1 }), summary: Type.String({ minLength: 1 }), complete: Type.Optional(Type.Boolean()) });
+	const reviewInput = Type.Object({ questionId: Type.String({ minLength: 1 }), state: Type.Union(ASSESSMENT_STATES.map(s => Type.Literal(s))), reason: Type.String({ minLength: 1 }) });
 	return {
+		lesson_progress: {
+			name: "lesson_progress", label: "lesson_progress", parameters: progressInput,
+			description: "Record the current lesson section during exposition, without asking or grading the learner. Call before explaining a section, then deliver the explanation. Set complete:true only when the paper synthesis is delivered. This is navigation, never mastery.",
+			execute: serverExecute("lesson_progress", progressInput, async input => {
+				const record = ctx.chatStore.getChat(ctx.chatId);
+				if (!record?.tree?.nodes.some(n => n.id === input.nodeId)) return { ok: false, error: "Unknown plan nodeId" };
+				return { ok: true, ...input };
+			}),
+		},
+		assessment_review: {
+			name: "assessment_review", label: "assessment_review", parameters: reviewInput,
+			description: "Append a correction to a resolved question's assessment evidence. Use invalidated for a flawed key/ambiguous item, untaught for content not taught, skipped for no attempt, needs-practice for an unresolved concept, or demonstrated for sound reasoning. questionId is the exact original question tool-call ID. Preserve the historical answer; this review supersedes its interpretation.",
+			execute: serverExecute("assessment_review", reviewInput, async input => {
+				const messages = ctx.chatStore.getChat(ctx.chatId)?.messages ?? [];
+				const found = messages.some(m => m.role === "toolResult" && !m.isError && m.toolCallId === input.questionId && ["quiz", "probe", "explain", "recall"].includes(m.toolName));
+				if (!found) return { ok: false, error: "Review must reference a resolved question in this session" };
+				return { ok: true, ...input };
+			}),
+		},
 		plan_init: {
 			name: "plan_init",
 			label: "plan_init",

@@ -88,7 +88,7 @@ export function derivePlanStatuses(tree: PlanTree, messages: readonly PartsCarri
 			// Either quizzing tool (quiz/explain) tags position — the mechanic
 			// is a settings switch; the fold recognizes both (owner 2026-09-27).
 			const snapshot = posedPluginQuestionOfPart(part);
-			if (part.pluginQuestion !== undefined ? snapshot?.variant !== "teach" : part.type !== "tool-quiz" && part.type !== "tool-explain") continue;
+			if (part.pluginQuestion !== undefined ? snapshot?.variant !== "teach" : part.type !== "tool-quiz" && part.type !== "tool-explain" && part.type !== "tool-lesson_progress") continue;
 			const nodeId = ((snapshot?.input ?? part.input) as { nodeId?: unknown } | undefined)?.nodeId;
 			if (typeof nodeId !== "string" || !ids.has(nodeId)) continue; // untagged/unknown — moves nothing
 			if (runs.at(-1) !== nodeId) runs.push(nodeId);
@@ -142,7 +142,7 @@ export function derivePlanStatusesLh(tree: PlanTree, messages: readonly LhMessag
 		for (const [contentIndex, block] of (content as Array<{ type?: string; name?: string; arguments?: unknown }>).entries()) {
 			const annotation = readPluginQuestionMessageAnnotation(m, contentIndex);
 			if (block.type !== "toolCall") continue;
-			if (annotation.status !== "absent" ? annotation.status !== "posed" || annotation.snapshot.variant !== "teach" : block.name !== "quiz" && block.name !== "explain") continue;
+			if (annotation.status !== "absent" ? annotation.status !== "posed" || annotation.snapshot.variant !== "teach" : block.name !== "quiz" && block.name !== "explain" && block.name !== "lesson_progress") continue;
 			const input = annotation.status === "posed" ? annotation.snapshot.input : block.arguments;
 			const nodeId = (input as { nodeId?: unknown } | undefined)?.nodeId;
 			if (typeof nodeId !== "string" || !ids.has(nodeId)) continue;

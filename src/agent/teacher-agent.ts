@@ -1,3 +1,7 @@
+import fs from "node:fs";
+import path from "node:path";
+import { Type } from "typebox";
+import { resolveTeachingPreferences, paperQuestionProblems, assessmentInstruction, type TeachingPreferences } from "../core/paper-teaching.ts";
 import { Agent } from "@earendil-works/pi-agent-core";
 import type { AgentEvent, AgentMessage, AgentTool } from "@earendil-works/pi-agent-core";
 import { invalidInputResult, questionResult } from "./tool-execute.ts";
@@ -23,7 +27,7 @@ import { createReadTool, readTool } from "./tools/read.ts";
 import { quizInputObject, quizInputProblems } from "../core/question-core.ts";
 import { QUESTION_TOOLS, TOGGLEABLE_TOOLS, type EnabledTools } from "../core/pending.ts";
 import type { PluginToolContext } from "../core/plugins.ts";
-import { toLlmMessages, nativeInputCause, PRACTICE_PROBLEM_TOOL } from "../core/native-messages.ts";
+import { toLlmMessages, nativeInputCause, PRACTICE_PROBLEM_TOOL, type LhMessage } from "../core/native-messages.ts";
 import type { ChatGPTRequestCycle } from "./chatgpt-request-cycle.ts";
 import { usageWasAdmitted } from "./subscription-request-cycle.ts";
 import { PluginQuestionLedger, type NativePluginQuestionContribution } from "./plugin-question-tools.ts";
@@ -60,7 +64,7 @@ export type AgentKind = "prober" | "teacher" | "practice";
  * New builtin names must join this catalog; actual turn tools are reserved too. */
 export const CONVERSATION_TOOL_NAMES = Object.freeze([
 	...QUESTION_TOOLS, ...TOGGLEABLE_TOOLS, "probe_done", "read", "ls", "find", "grep",
-	"plan_init", "list_sessions", "list_propositions", "problem", "conclude", sendToUserTool.name,
+	"plan_init", "lesson_progress", "assessment_review", "list_sessions", "list_propositions", "problem", "conclude", sendToUserTool.name,
 ] as const);
 
 // P2 (2026-09-19): segment discovery + override resolution live in ONE
@@ -84,10 +88,17 @@ export const CONVERSATION_TOOL_NAMES = Object.freeze([
  *  tests/prompt-overrides.test.ts). Overrides are a static-file read
  *  through config paths, not request state — the store import carries no
  *  chat/job machinery. */
-export function composeInstructions(kind: AgentKind, switches?: Record<string, boolean>): string {
+export function composeInstructions(kind: AgentKind, switches?: Record<string, boolean>, preferences?: TeachingPreferences): string {
 	const segments = effectivePromptSegments(kind, switches ?? {});
 	return segments
-		.map((s) => (s.enabled ? s.overrideText! : s.sourceText))
+		.map((s) => {
+			if (s.enabled) return s.overrideText!;
+			if (kind !== "practice" && preferences && resolveTeachingPreferences(preferences).style === "paper") {
+				const file = path.join(PATHS.root, "src/agent/prompts/paper", s.path);
+				if (fs.existsSync(file)) return fs.readFileSync(file, "utf8");
+			}
+			return s.sourceText;
+		})
 		.map((t) => t.trim())
 		.filter(Boolean)
 		.join("\n\n---\n\n");
@@ -148,6 +159,8 @@ export interface AgentBuildOptions {
 	 *  fresh per turn, honoring enabled overrides (switch on + file
 	 *  exists); absent → the cached pure-source composition. */
 	promptSwitches?: Record<string, boolean>;
+	teachingPreferences?: TeachingPreferences;
+	teachingHistory?: () => readonly LhMessage[];
 	/** Native conversation identity: the existing persisted chat id, reused
 	 * across reconstructed prober, teacher, and practice Agents.
 	 * Debug: when set AND LH_PROVIDER_EVENTS=1, raw provider stream events
@@ -211,16 +224,38 @@ function baseAgentOptions(kind: AgentKind, opts: AgentBuildOptions, tools: Agent
 	const stopper = makeQuestionStopper(kind);
 	const narrationGuard = narrationGuardApplies(kind, engine.model, opts.tools !== undefined);
 	const narrationHooks = narrationGuard ? makeNarrationGuard() : undefined;
-	const composedPrompt = opts.promptSwitches
-		? composeInstructions(kind, opts.promptSwitches)
+	const composedPrompt = opts.promptSwitches || opts.teachingPreferences
+		? composeInstructions(kind, opts.promptSwitches, opts.teachingPreferences)
 		: composedInstructions[kind]!;
-	const builtinPrompt = narrationGuard ? `${composedPrompt}\n\n---\n\n${SEND_TO_USER_DELIVERY_RULE}` : composedPrompt;
+	const preferences = resolveTeachingPreferences(opts.teachingPreferences);
+	const policy = kind !== "practice" && opts.teachingPreferences && preferences.style === "paper" ? `
+
+Lesson settings: ${JSON.stringify(preferences)}. These settings govern this session. Calibration and checkpoint counts are maximums, not quotas. A zero budget means no graded questions. Begin with overview, then worked pipeline, trade-offs, results and limitations. Use lesson_progress to move the map during exposition; finish the section in prose and allow the learner to Continue reading. On a flawed question, call assessment_review with its tool call ID. Do not infer misunderstanding from untaught, skipped or invalidated items. No repeated plan confirmation.
+${assessmentInstruction(opts.teachingHistory?.() ?? [])}` : "";
+	const instructed = composedPrompt + policy;
+	const builtinPrompt = narrationGuard ? `${instructed}\n\n---\n\n${SEND_TO_USER_DELIVERY_RULE}` : instructed;
 	// Bind native read and preserve the kind/model-aware Claude output gate
 	// before resolving additive plugins. Explicit registries remain caller-owned.
 	const builtinTools = [
-		...tools.map((tool) => tool.name === "read" && tool.execute === readTool.execute
-			? { ...tool, execute: createReadTool(engine.model).execute as AgentTool<any>["execute"] }
-			: tool),
+		...tools.map((original) => {
+			const tool = original.name === "read" && original.execute === readTool.execute
+				? { ...original, execute: createReadTool(engine.model).execute as AgentTool<any>["execute"] } : original;
+			if (!opts.teachingPreferences || preferences.style !== "paper" || opts.tools || !["quiz", "explain", "probe", "recall"].includes(tool.name)) return tool;
+			const probe = tool.name === "probe" || tool.name === "recall";
+			return { ...tool,
+				parameters: Type.Object({ ...tool.parameters.properties, ...(probe ? { prerequisiteOnly: Type.Boolean() } : {
+					grounding: Type.Object({ taughtExcerpt: Type.String({ minLength: 20, description: "Exact quotation from teaching prose already presented, containing the premise needed to answer." }), source: Type.String({ minLength: 1, description: "Paper section/page, or clearly marked illustrative example." }), answerKeyChecked: Type.Literal(true) }),
+				}) }),
+				execute: async (id: string, input: Record<string, unknown>, signal?: AbortSignal, update?: Parameters<AgentTool<any>["execute"]>[3]) => {
+					const live = agent.state.messages as LhMessage[];
+					const saved = opts.teachingHistory?.() ?? [];
+					const seen = new Set(saved.map(m => m.id));
+					const history = [...saved, ...live.filter(m => !seen.has(m.id))];
+					const problems = paperQuestionProblems({ name: tool.name, questionId: id, args: input, messages: history, preferences });
+					return problems.length ? invalidInputResult(tool.name, problems) : tool.execute(id, input, signal, update);
+				},
+			} as AgentTool<any>;
+			}),
 		...(sendToUserApplies(kind, engine.model, opts.tools !== undefined)
 			? [withArgumentHeal(sendToUserTool)]
 			: []),

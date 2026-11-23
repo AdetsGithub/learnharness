@@ -43,7 +43,7 @@ function isTeachQuestionPart(part: PhaseMessage["parts"][number]): boolean {
 		const snapshot = posedPluginQuestionOfPart(part);
 		return snapshot?.variant === "teach" && taggedNodeId(snapshot.input);
 	}
-	return (part.type === "tool-quiz" || part.type === "tool-explain") && taggedNodeId(part.input);
+	return (part.type === "tool-quiz" || part.type === "tool-explain" || part.type === "tool-lesson_progress") && taggedNodeId(part.input);
 }
 
 /** The phase at `upToIndex` (inclusive; default: the last message). */
@@ -165,7 +165,7 @@ export function phaseAt3Lh(messages: readonly LhMessage[], upToIndex?: number): 
 					}
 					if (
 						block.type === "toolCall" &&
-						(block.name === "quiz" || block.name === "explain") &&
+						(block.name === "quiz" || block.name === "explain" || block.name === "lesson_progress") &&
 						taggedNodeId(block.arguments)
 					) {
 						phase = "teach";

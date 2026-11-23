@@ -89,7 +89,7 @@ async function mainInput(chatId: string, input: unknown, service: ReturnType<typ
 	main.appendResponses([(context) => { contexts.push(context); return fauxAssistantMessage("The teacher moves on."); }]);
 	const engine: PiEngine = { model: main.getModel(), streamFn: main.streamSimple };
 	const response = await handleChatRequest(new Request("http://offline.test/api/chat", { method: "POST", headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ chatId, input }) }), (opts) => createTeacherAgent(undefined, { ...opts, engine }), service);
+		body: JSON.stringify({ chatId, input }) }), (opts) => createTeacherAgent(undefined, { ...opts, engine, teachingPreferences: { style: "guided" } }), service);
 	if (response.ok) { const turn = runningTurn(chatId); if (turn) await new Response(turn.subscribe()).text(); }
 	return { response, contexts };
 }
@@ -175,7 +175,7 @@ describe("reasoning option × side-request composition", () => {
 			};
 			const response = await handleChatRequest(new Request("http://offline.test/api/chat", { method: "POST", headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ chatId: f.chatId, input: { type: "answer", toolCallId: "check", answer: gradedAnswer() } }) }), (opts) => {
-				agent = createTeacherAgent(undefined, { ...opts, engine: { ...opts.engine!, streamFn },
+				agent = createTeacherAgent(undefined, { ...opts, teachingPreferences: { style: "guided" }, engine: { ...opts.engine!, streamFn },
 					validateContext: (messages) => {
 						const live = messages.filter((message) => (message as { role: string }).role !== "system") as LhMessage[];
 						assert.equal(estimateContextTokens(live, requestModel).lastUsageIndex, null);
