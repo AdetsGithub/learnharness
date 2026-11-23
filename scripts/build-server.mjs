@@ -41,10 +41,6 @@ if (exists(path.join(ROOT, "public"))) {
 	copyTree(path.join(ROOT, "public"), path.join(STANDALONE, "public"));
 }
 
-// Paper policies are runtime assets selected by session settings. Copy the full
-// source directory explicitly so a new fragment is never silently omitted by tracing.
-copyTree(path.join(ROOT, "src", "agent", "prompts", "paper"), path.join(STANDALONE, "src", "agent", "prompts", "paper"));
-
 // 2) Safety: the repo's real data/ must NEVER ride along in the bundle.
 const leakedData = path.join(STANDALONE, "data");
 if (exists(leakedData)) {
@@ -66,6 +62,10 @@ for (const secret of ["auth.json", ...subscriptionSecrets, ".env", ".env.local"]
 		process.exit(1);
 	}
 }
+
+// Paper policies are runtime assets selected by session settings. Copy the full
+// source directory explicitly so a new fragment is never silently omitted by tracing.
+copyTree(path.join(ROOT, "src", "agent", "prompts", "paper"), path.join(STANDALONE, "src", "agent", "prompts", "paper"));
 
 // Assemble plugin assets only after refusing unsafe traced data/credentials.
 // Runtime native plugin loader is deliberately outside Next's module graph.
