@@ -95,6 +95,7 @@ try {
  await page.waitForSelector('button::-p-text(Explain the difficult details)');
  assert.equal(await page.$('[data-testid="continue-reading"]'), null);
  assert.match(await page.$eval('[data-testid="paper-lesson-bar"]', e => e.textContent), /Overview explained.*Understanding not yet assessed/);
+ await page.screenshot({ path: path.join(evidence, "overview-complete.png"), fullPage: true });
  continuation = undefined;
  await page.click('button::-p-text(Explain the difficult details)');
  for (let i = 0; !continuation && i < 50; i++) await delay(100);
